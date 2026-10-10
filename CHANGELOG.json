@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "lastUpdated": "2026-10-10T08:28:42Z",
+    "currentVersion": "0.1.0",
+    "projectTypes": [
+      "spring",
+      "react"
+    ],
+    "totalReleases": 1
+  },
+  "releases": [
+    {
+      "version": "0.1.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-10",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- add security config exposing only health endpoint\n\n### 📝 문서\n- 에이전트 작업 규칙 추가\n\n### 🔧 변경사항\n- add wizard logs gitignore\n- ignore web iml file\n- add web ci and cd workflows\n- add web dockerfile and nginx config\n- initialize react web project\n- add server ci and cd workflows\n- add server dockerfile\n- initialize spring boot server project with actuator\n- add project-auto-wizard common workflows and scripts\n- add root gitignore",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "add security config exposing only health endpoint"
+          ]
+        },
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "에이전트 작업 규칙 추가"
+          ]
+        },
+        "changes": {
+          "title": "🔧 변경사항",
+          "items": [
+            "add wizard logs gitignore",
+            "ignore web iml file",
+            "add web ci and cd workflows",
+            "add web dockerfile and nginx config",
+            "initialize react web project",
+            "add server ci and cd workflows",
+            "add server dockerfile",
+            "initialize spring boot server project with actuator",
+            "add project-auto-wizard common workflows and scripts",
+            "add root gitignore"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    }
+  ]
+}
