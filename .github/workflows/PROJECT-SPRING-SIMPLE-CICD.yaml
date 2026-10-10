@@ -1,0 +1,454 @@
+# project-auto-wizard:managed-workflow
+# Spring Boot CI/CD deploy (SSH + Docker)
+#
+# On a push to the deploy branch, builds a Docker image and
+# deploys it automatically to any server reachable over SSH (Synology, AWS EC2, VPS, ...).
+#
+# Required GitHub Secrets
+# APPLICATION_PROD_YML (optional): contents of application-prod.yml
+# DOCKERHUB_USERNAME: DockerHub username
+# DOCKERHUB_TOKEN: DockerHub access token
+# SERVER_HOST: deployment server address
+# SERVER_USER: SSH username
+# SERVER_PASSWORD: SSH password (when SSH_AUTH_METHOD=password)
+# SSH_KEY: contents of the SSH private key .pem (when SSH_AUTH_METHOD=key, e.g. AWS EC2)
+#
+# Environment variables (set in the env section)
+#
+# Ports and container:
+# CONTAINER_INTERNAL_PORT: Spring Boot internal port (default: 8080)
+# DEPLOY_PORT: deploy port
+# CONTAINER_NAME: container name (default: PROJECT_NAME)
+#
+# Volume mount:
+# ENABLE_VOLUME_MOUNT: enable the volume mount (true/false)
+# VOLUME_HOST_PATH: host volume path
+# VOLUME_CONTAINER_PATH: mount path inside the container
+#
+# SSH connection:
+# SSH_PORT: SSH port (default: 2022)
+# SSH_COMMAND_TIMEOUT: SSH command timeout (default: 600s)
+# SSH_CONNECTION_TIMEOUT: SSH connection timeout (default: 60s)
+#
+# Health check:
+# HEALTHCHECK_WAIT_SECONDS: initialization wait time (default: 10s)
+# HEALTHCHECK_PATH: HTTP endpoint path (log pattern only if empty)
+# HEALTHCHECK_MAX_RETRIES: HTTP retry count (default: 120)
+# HEALTHCHECK_RETRY_INTERVAL: retry interval (default: 1s)
+# HEALTHCHECK_LOG_PATTERN: fallback log search pattern
+#
+# HEALTHCHECK_PATH examples:
+#   Spring Boot (Actuator): "/actuator/health"
+#   Custom: "/api/v1/health"
+#
+# HEALTHCHECK_LOG_PATTERN example:
+#   Spring Boot: "Tomcat started on port"
+#
+# Per-branch deploy:
+# - deploy branch: automatic deploy (uses DEPLOY_PORT)
+# - main branch: manual runs only
+
+name: PROJECT-SPRING-SIMPLE-CICD
+
+# Trigger settings
+# CI/CD runs automatically on a push to the deploy branch.
+# The main branch can only be run manually via workflow_dispatch.
+on:
+  push:
+    branches:
+      - "main"  # deploy environment (uses DEPLOY_PORT)
+    paths: ['server/**']
+  workflow_dispatch:  # allow manual runs
+
+env:
+  # Project settings - change to your actual project name
+  PROJECT_NAME: "whoim-server"
+  # Subdirectory of this project in a monorepo (--paths). Base for the build and Docker context ('.' = repo root)
+  PROJECT_PATH: "server"
+
+  # Spring Boot settings
+  SPRING_PROFILE: "prod"
+  JAVA_VERSION: "21"
+  GRADLE_OPTS: "-Dspring.profiles.active=prod"
+
+  # Path settings
+  APPLICATION_YML_DIR: "server/src/main/resources"
+  DOCKERFILE_PATH: "./Dockerfile"  # relative to PROJECT_PATH
+
+  # Port settings
+  CONTAINER_INTERNAL_PORT: "8080"  # Spring Boot internal port (fixed)
+  DEPLOY_PORT: "8087"
+
+  # Container name
+  # If empty, PROJECT_NAME is used (e.g. mapsy-back)
+  # Enter a custom name to override (e.g. "my-custom-container")
+  CONTAINER_NAME: ""
+
+  # Volume mount settings
+  # true: enable the volume mount (the directory is created if missing)
+  # false: disable the volume mount (default)
+  ENABLE_VOLUME_MOUNT: "true"
+  VOLUME_HOST_PATH: "/volume1/project/whoim/server"
+  VOLUME_CONTAINER_PATH: "/mnt/whoim-server"
+
+  # SSH auth method: "password" (Synology / generic servers) | "key" (AWS EC2 / .pem)
+  #   password -> uses the SERVER_PASSWORD secret
+  #   key      -> uses the SSH_KEY secret (the full .pem contents as the secret value)
+  SSH_AUTH_METHOD: "password"
+
+  # SSH connection settings
+  SSH_PORT: "2022"
+  SSH_COMMAND_TIMEOUT: "600s"  # SSH command execution timeout
+  SSH_CONNECTION_TIMEOUT: "60s"  # SSH connection timeout
+
+  # Health check settings
+  HEALTHCHECK_WAIT_SECONDS: "10"  # container initialization wait (seconds)
+  HEALTHCHECK_PATH: "/actuator/health"  # HTTP endpoint path (log pattern only if empty)
+  HEALTHCHECK_MAX_RETRIES: "120"  # HTTP retry count
+  HEALTHCHECK_RETRY_INTERVAL: "1"  # retry interval (seconds)
+  HEALTHCHECK_LOG_PATTERN: "Tomcat started on port"  # fallback log search pattern
+
+jobs:
+  # Build job
+  build:
+    name: Build Spring Boot application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # If a required Secret or the Dockerfile is missing, name it and stop instead of failing later in a third-party step such as docker login
+      - name: Deploy pre-check (Secrets and Dockerfile)
+        working-directory: ${{ env.PROJECT_PATH }}
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DOCKERFILE: ${{ env.DOCKERFILE_PATH }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          MISSING=""
+          for NAME in DOCKERHUB_USERNAME DOCKERHUB_TOKEN SERVER_HOST SERVER_USER; do
+            [ -n "${!NAME}" ] || MISSING="$MISSING $NAME"
+          done
+          # SSH_AUTH_METHOD=key needs SSH_KEY, anything else needs SERVER_PASSWORD
+          if [ "${SSH_AUTH_METHOD:-password}" = "key" ]; then
+            [ -n "$SSH_KEY" ] || MISSING="$MISSING SSH_KEY"
+          else
+            [ -n "$SERVER_PASSWORD" ] || MISSING="$MISSING SERVER_PASSWORD"
+          fi
+          FAILED=false
+          if [ -n "$MISSING" ]; then
+            echo "::error title=$(m cicd.precheck_secret_title)::$(m cicd.precheck_secret_body missing="$MISSING")"
+            FAILED=true
+          fi
+          if [ ! -f "$DOCKERFILE" ]; then
+            echo "::error title=$(m cicd.precheck_dockerfile_title)::$(m cicd.precheck_dockerfile_body path="${PROJECT_PATH}/${DOCKERFILE#./}")"
+            FAILED=true
+          fi
+          if [ "$FAILED" = "true" ]; then
+            exit 1
+          fi
+          m cicd.precheck_ok
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Make Gradle wrapper executable
+        working-directory: ${{ env.PROJECT_PATH }}
+        run: chmod +x gradlew
+
+      # Read APPLICATION_PROD_YML from GitHub Secrets and
+      # write it to a file in the resources directory
+      - name: Generate application-prod.yml
+        env:
+          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          mkdir -p "$APPLICATION_YML_DIR"
+
+          printf '%s' "$APPLICATION_PROD_YML" > "./$APPLICATION_YML_DIR/application-prod.yml"
+
+          m wf_spring_deploy.prod_yml_created dir="${{ env.APPLICATION_YML_DIR }}"
+
+      # Firebase service account key (disabled by default; uncomment to enable)
+      # - name: Generate firebase-adminsdk.json
+      #   env:
+      #     FIREBASE_ADMINSDK_JSON: ${{ secrets.FIREBASE_ADMINSDK_JSON }}
+      #   run: |
+      #     mkdir -p "$APPLICATION_YML_DIR"
+      #     printf '%s' "$FIREBASE_ADMINSDK_JSON" > "./$APPLICATION_YML_DIR/firebase-adminsdk.json"
+
+      # Build with the production profile, skipping tests
+      - name: Build with Gradle
+        working-directory: ${{ env.PROJECT_PATH }}
+        run: ./gradlew clean build -x test ${{ env.GRADLE_OPTS }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Cache Docker layers
+        uses: actions/cache@v6
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('server/Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # Use the branch name as the image tag to manage images per environment
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.PROJECT_PATH }}
+          file: ${{ env.PROJECT_PATH }}/${{ env.DOCKERFILE_PATH }}
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${{ github.ref_name }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Move Docker cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  # Deploy job
+  deploy:
+    name: Deploy to remote server
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # The deploy script runs on the server, which has no messages.py:
+      # render the message catalog here and pass it along as a base64 env var
+      - name: Checkout message catalog
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts/messages.py
+            version.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Load messages
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          MSGS="$(python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" dump wf_spring_deploy. \
+            | python3 -c 'import json, shlex, sys; d = json.load(sys.stdin); print("\n".join("M_%s=%s" % (k.replace(".", "_"), shlex.quote(v)) for k, v in d.items()))' \
+            | base64 | tr -d '\n')"
+          echo "PAW_MSG_B64=$MSGS" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
+          PAW_MSG_B64: ${{ env.PAW_MSG_B64 }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ env.SSH_PORT }}
+          command_timeout: ${{ env.SSH_COMMAND_TIMEOUT }}
+          timeout: ${{ env.SSH_CONNECTION_TIMEOUT }}
+          envs: SSH_AUTH_METHOD,PAW_MSG_B64
+          script: |
+            set -e
+
+            # Deployment environment
+            export PATH=$PATH:/usr/local/bin
+            export PW=${{ secrets.SERVER_PASSWORD }}
+
+            # Messages arrive as base64 shell assignments (the server has no messages.py)
+            eval "$(printf '%s' "$PAW_MSG_B64" | base64 -d)"
+            m() {
+              local _v="M_wf_spring_deploy_$1" _kv
+              local _s="${!_v}"
+              shift
+              for _kv in "$@"; do _s=${_s//\{${_kv%%=*}\}/${_kv#*=}}; done
+              printf '%s\n' "$_s"
+            }
+
+            m simple_env_setup
+
+            # Abstract sudo by SSH auth method
+            #   password mode: echo $PW | sudo -S  (servers that need a sudo password, e.g. Synology)
+            #   key mode: plain sudo  (passwordless sudo servers, e.g. AWS EC2)
+            SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
+            if [ "${SSH_AUTH_METHOD}" = "key" ]; then
+              SUDO() { sudo "$@"; }
+            else
+              SUDO() { echo "$PW" | sudo -S "$@"; }
+            fi
+            m ssh_auth_method method="${SSH_AUTH_METHOD}"
+
+            BRANCH=${{ github.ref_name }}
+
+            PROJECT_NAME="${{ env.PROJECT_NAME }}"
+
+            # Port and container name
+            PORT=${{ env.DEPLOY_PORT }}
+
+            # Container name (defaults to PROJECT_NAME when the env var is empty)
+            if [ -z "${{ env.CONTAINER_NAME }}" ]; then
+              CONTAINER_NAME="${PROJECT_NAME}"
+              m simple_container_name_default name="$CONTAINER_NAME"
+            else
+              CONTAINER_NAME="${{ env.CONTAINER_NAME }}"
+              m simple_container_name_custom name="$CONTAINER_NAME"
+            fi
+
+            m simple_deploy_start branch="$BRANCH"
+
+            m simple_config_header
+            m simple_config_branch branch="$BRANCH"
+            m simple_config_project name="$PROJECT_NAME"
+            m simple_config_container name="$CONTAINER_NAME"
+            m simple_config_port port="$PORT"
+            m simple_config_image image="${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}"
+
+            # Pull the Docker image
+            m simple_image_pull image="${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}"
+            SUDO docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}
+
+            # Clean up the existing container
+            m simple_container_check name="$CONTAINER_NAME"
+
+            if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+              m simple_container_exists name="$CONTAINER_NAME"
+              SUDO docker rm -f $CONTAINER_NAME
+              m simple_container_removed name="$CONTAINER_NAME"
+            else
+              m simple_container_missing name="$CONTAINER_NAME"
+            fi
+
+            # Run the new container
+            m simple_container_starting name="$CONTAINER_NAME"
+
+            VOLUME_MOUNT_OPTION=""
+            if [ "${{ env.ENABLE_VOLUME_MOUNT }}" == "true" ]; then
+              if [ ! -d "${{ env.VOLUME_HOST_PATH }}" ]; then
+                m volume_mkdir path="${{ env.VOLUME_HOST_PATH }}"
+                SUDO mkdir -p "${{ env.VOLUME_HOST_PATH }}"
+              fi
+              VOLUME_MOUNT_OPTION="-v ${{ env.VOLUME_HOST_PATH }}:${{ env.VOLUME_CONTAINER_PATH }}"
+              m simple_volume_enabled option="$VOLUME_MOUNT_OPTION"
+            else
+              m volume_disabled
+            fi
+
+            SUDO docker run -d \
+              -p ${PORT}:${{ env.CONTAINER_INTERNAL_PORT }} \
+              --name $CONTAINER_NAME \
+              --restart unless-stopped \
+              -e TZ=Asia/Seoul \
+              -e "SPRING_PROFILES_ACTIVE=${{ env.SPRING_PROFILE }}" \
+              -v /etc/localtime:/etc/localtime:ro \
+              $VOLUME_MOUNT_OPTION \
+              ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}
+
+            # Container health check
+            m simple_init_wait sec="${{ env.HEALTHCHECK_WAIT_SECONDS }}"
+            sleep ${{ env.HEALTHCHECK_WAIT_SECONDS }}
+
+            # Step 1: check the container process
+            m simple_hc_check
+            if ! SUDO docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+              m simple_hc_process_missing name="$CONTAINER_NAME"
+              SUDO docker logs --tail 50 $CONTAINER_NAME || true
+              exit 1
+            fi
+            m simple_hc_process_ok
+
+            # Step 2: check the HTTP endpoint (if configured)
+            HEALTHCHECK_SUCCESS=false
+            if [ -n "${{ env.HEALTHCHECK_PATH }}" ]; then
+              m simple_http_start url="http://localhost:${PORT}${{ env.HEALTHCHECK_PATH }}"
+
+              for i in $(seq 1 ${{ env.HEALTHCHECK_MAX_RETRIES }}); do
+                m simple_http_attempt i="$i" max="${{ env.HEALTHCHECK_MAX_RETRIES }}"
+
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}${{ env.HEALTHCHECK_PATH }} || echo "000")
+
+                if [ "$HTTP_CODE" = "200" ]; then
+                  m simple_http_ok code="$HTTP_CODE"
+                  HEALTHCHECK_SUCCESS=true
+                  break
+                else
+                  m simple_http_fail code="$HTTP_CODE"
+                  if [ $i -lt ${{ env.HEALTHCHECK_MAX_RETRIES }} ]; then
+                    m simple_http_retry sec="${{ env.HEALTHCHECK_RETRY_INTERVAL }}"
+                    sleep ${{ env.HEALTHCHECK_RETRY_INTERVAL }}
+                  fi
+                fi
+              done
+
+              # If the HTTP check fails, fall back to log pattern matching
+              if [ "$HEALTHCHECK_SUCCESS" = "false" ]; then
+                m simple_http_fallback
+              fi
+            else
+              m simple_hc_path_unset
+            fi
+
+            # Step 3: log pattern matching (when the HTTP check failed or is disabled)
+            if [ "$HEALTHCHECK_SUCCESS" = "false" ]; then
+              m simple_log_match_start pattern="${{ env.HEALTHCHECK_LOG_PATTERN }}"
+
+              if SUDO docker logs $CONTAINER_NAME 2>&1 | grep -q "${{ env.HEALTHCHECK_LOG_PATTERN }}"; then
+                m simple_log_match_ok
+                HEALTHCHECK_SUCCESS=true
+              else
+                m simple_log_match_fail
+                echo ""
+                m simple_debug_header
+                m simple_debug_pattern pattern="${{ env.HEALTHCHECK_LOG_PATTERN }}"
+                m simple_debug_container name="$CONTAINER_NAME"
+                m simple_debug_image image="${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}"
+                m simple_debug_port port="${PORT}:${{ env.CONTAINER_INTERNAL_PORT }}"
+                m simple_debug_volume volume="$VOLUME_MOUNT_OPTION"
+                m simple_debug_profile profile="${{ env.SPRING_PROFILE }}"
+                echo ""
+                m simple_logs_tail
+                SUDO docker logs --tail 50 $CONTAINER_NAME || true
+                exit 1
+              fi
+            fi
+
+            if [ "$HEALTHCHECK_SUCCESS" = "true" ]; then
+              m simple_hc_done name="$CONTAINER_NAME"
+            fi
+
+            # Remove dangling images left by the previous deploy
+            SUDO docker image prune -f || true
+
+            # Confirm the deploy finished
+            m simple_deploy_done
+            echo ""
+            m simple_summary_header
+            m simple_summary_project name="$PROJECT_NAME"
+            m simple_summary_branch branch="$BRANCH"
+            m simple_summary_container name="$CONTAINER_NAME"
+            m simple_summary_port port="$PORT"
+            m simple_summary_time time="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            m simple_access_url url="http://${{ secrets.SERVER_HOST }}:${PORT}"
+
+# Usage
+# 1. Set up GitHub Secrets (DOCKERHUB_*, SERVER_*)
+# 2. Set PROJECT_NAME and DEPLOY_PORT in the env section
+# 3. Push to the deploy branch -> CI/CD runs automatically
