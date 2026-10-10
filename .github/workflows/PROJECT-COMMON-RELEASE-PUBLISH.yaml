@@ -1,0 +1,666 @@
+# project-auto-wizard:managed-workflow
+# PROJECT-COMMON-RELEASE-PUBLISH.yaml
+# Tag + GitHub Release publisher (dual-mode)
+#
+# Publishes a git tag (vX.Y.Z) and a GitHub Release for every release
+# that lands on main. Two branch modes, read from version.yml
+# (metadata.template.branches.mode, default: pr-flow):
+#
+# - pr-flow: releases arrive as merge commits produced by
+#   AUTO-CHANGELOG-CONTROL. Only pushes whose head commit message matches
+#   the release-confirm pattern "chore(release):" proceed; anything else
+#   exits cleanly. Version + changelog were already confirmed in the PR.
+#
+# - trunk-based: every direct push to main is a release.
+#   This job bumps the version and syncs it, summarizes the commits since
+#   the last tag with the ai-summary engine chain (user API -> GitHub
+#   Models -> rule-based fallback, diff-stat-enriched prompt), updates
+#   CHANGELOG.json / CHANGELOG.md, and commits everything back with
+#   [skip ci]. Same as pr-flow's AUTO-CHANGELOG-CONTROL:
+#   - If version.yml metadata.template.options.semver_auto is true
+#     (default): classifies commits (feat -> minor, `!` marker or a
+#     `BREAKING CHANGE:` body footer -> major, else patch; AI-assisted patch->minor upgrade for unclassified
+#     commits) and bumps accordingly.
+#   - Otherwise: always patch+1 (legacy behavior).
+#
+# Common tail (both modes): recovery-aware idempotency guard (tag and
+# release checked separately so a half-published release can be finished
+# on re-run), tag push, release notes = changelog export (ai_notes) +
+# GitHub generate-notes API (contributors/compare links), then
+# gh release create, then a workflow_dispatch of README-VERSION-UPDATE
+# (bot-token pushes never wake it, so the README would stay behind).
+# pr-flow only: when the release PR was merged by the bot token (no
+# WORKFLOW_PAT), the merge push woke none of the main deploy
+# workflows either, so every installed workflow with a main push
+# trigger and workflow_dispatch is dispatched too. A PAT or human merge
+# already fired the push event, so those are left alone (no double deploy).
+#
+# The trunk-based docs commit is pushed with fetch -> rebase -> push retries.
+# If README.md conflicts with a concurrent README commit (a date refresh),
+# the remote README is kept and the released version line is reapplied, so
+# a README conflict never stops the tag and the Release from being created.
+# README-VERSION-UPDATE skips its own push run in trunk-based mode; this
+# workflow dispatches it after publishing instead.
+#
+# Release-confirm pattern: "chore(release):" — keep in sync with
+# PROJECT-COMMON-AUTO-CHANGELOG-CONTROL and PROJECT-COMMON-VERSION-CONTROL.
+#
+# workflow_dispatch republishes the current version (recovery path when a
+# previous run failed after the version was confirmed but before the
+# release was created). The idempotency guard keeps it safe to re-run.
+#
+# This file and its self-copy (.github/workflows/) intentionally
+# differ by one step — the self-copy also triggers NPM-PUBLISH via
+# workflow_dispatch right after the release is created. NPM-PUBLISH.yaml is
+# a repo-only workflow (not shipped in payload), so wiring that dispatch
+# here would make every wizard-installed repo call a workflow that doesn't
+# exist for them on every release.
+
+name: PROJECT-RELEASE-PUBLISH
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  # Wake README-VERSION-UPDATE and the deploy workflows via workflow_dispatch
+  actions: write
+  # Read who merged the release PR to decide whether deploys must be woken again
+  pull-requests: read
+  copilot-requests: write
+
+env:
+  # Keep script imports from creating .github/scripts/__pycache__ so it never ends up in bot commits
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  release:
+    name: Tag and publish GitHub Release
+    # Bot housekeeping commits never publish releases
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: "main"
+
+      - name: Git config
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Detect branch mode
+        id: mode
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # scoped to the metadata: -> template: -> branches: chain so an
+          # unrelated top-level "mode:" key can never hijack the value
+          MODE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?branches:.*?mode:\s*\"?([A-Za-z-]+)", t, re.S); print(m.group(1) if m else "pr-flow")' 2>/dev/null || echo "pr-flow")
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+          echo "$(m wf_release.branch_mode mode="$MODE")"
+
+      - name: Release gate
+        id: gate
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          MODE="${{ steps.mode.outputs.mode }}"
+          EVENT="${{ github.event_name }}"
+          HEAD_MSG=$(git log -1 --pretty=%B)
+          PROCEED=false
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            # manual republish of the current version
+            PROCEED=true
+          elif [ "$MODE" = "trunk-based" ]; then
+            # every non-[skip ci] push to main is a release
+            PROCEED=true
+          elif printf '%s\n' "$HEAD_MSG" | grep -q "chore(release):"; then
+            # pr-flow: only release-confirm merges publish a release
+            # (pattern shared with AUTO-CHANGELOG-CONTROL / VERSION-CONTROL)
+            PROCEED=true
+          fi
+
+          echo "proceed=$PROCEED" >> $GITHUB_OUTPUT
+          if [ "$PROCEED" = "true" ]; then
+            echo "$(m wf_release.gate_open mode="$MODE" event="$EVENT")"
+            exit 0
+          fi
+
+          echo "$(m wf_release.gate_closed)"
+
+          # Drift guard: skipping is normal, but a version.yml that
+          # has run ahead of the newest tag is not — it means the version was
+          # bumped without a release, so npm silently stays behind. Six versions
+          # (0.1.26~0.1.31) went missing this way with every workflow green.
+          FILE_VERSION=$(grep -m1 '^version:' version.yml | sed 's/version:[ \t]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/')
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          LATEST_VERSION="${LATEST_TAG#v}"
+
+          if [ -z "$FILE_VERSION" ] || [ -z "$LATEST_VERSION" ]; then
+            echo "$(m wf_release.drift_skipped)"
+            exit 0
+          fi
+
+          HIGHER=$(printf '%s\n%s\n' "$FILE_VERSION" "$LATEST_VERSION" | sort -V | tail -n 1)
+          if [ "$FILE_VERSION" != "$LATEST_VERSION" ] && [ "$HIGHER" = "$FILE_VERSION" ]; then
+            echo "::error::$(m wf_release.drift_error file_version="$FILE_VERSION" latest_tag="$LATEST_TAG")"
+            {
+              echo "$(m wf_release.drift_heading)"
+              echo ""
+              echo "$(m wf_release.drift_version_line version="$FILE_VERSION")"
+              echo "$(m wf_release.drift_tag_line tag="$LATEST_TAG")"
+              echo ""
+              echo "$(m wf_release.drift_body)"
+              echo "$(m wf_release.drift_recover)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "$(m wf_release.drift_ok file_version="$FILE_VERSION" latest_tag="$LATEST_TAG")"
+
+      - name: Read semver_auto option from version.yml
+        id: semver_options
+        if: >-
+          steps.gate.outputs.proceed == 'true' &&
+          steps.mode.outputs.mode == 'trunk-based' &&
+          github.event_name == 'push'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # scoped to the metadata: -> template: -> options: chain so an
+          # unrelated "semver_auto:" key can never hijack the value
+          SEMVER_AUTO=$(python3 "$GITHUB_WORKSPACE/.github/scripts/version_manager.py" option semver_auto --default false || echo "false")
+          echo "semver_auto=$SEMVER_AUTO" >> $GITHUB_OUTPUT
+          echo "$(m wf_common.semver_auto_option semver_auto="$SEMVER_AUTO")"
+
+      - name: Read copilot_ai option from version.yml
+        id: copilot_options
+        if: >-
+          steps.gate.outputs.proceed == 'true' &&
+          steps.mode.outputs.mode == 'trunk-based' &&
+          github.event_name == 'push'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # scoped to the metadata: -> template: -> options: chain so an
+          # unrelated "copilot_ai:" key can never hijack the value
+          COPILOT_AI=$(python3 "$GITHUB_WORKSPACE/.github/scripts/version_manager.py" option copilot_ai --default false || echo "false")
+          echo "copilot_ai=$COPILOT_AI" >> $GITHUB_OUTPUT
+          echo "$(m wf_common.copilot_ai_option copilot_ai="$COPILOT_AI")"
+
+      - name: Install Copilot CLI
+        if: >-
+          steps.gate.outputs.proceed == 'true' &&
+          steps.mode.outputs.mode == 'trunk-based' &&
+          github.event_name == 'push' &&
+          steps.copilot_options.outputs.copilot_ai == 'true'
+        continue-on-error: true
+        run: npm install -g @github/copilot@1.0.88
+
+      - name: Trunk-based version bump + changelog
+        if: >-
+          steps.gate.outputs.proceed == 'true' &&
+          steps.mode.outputs.mode == 'trunk-based' &&
+          github.event_name == 'push'
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_API_BASE_URL: ${{ vars.AI_API_BASE_URL }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AI: ${{ steps.copilot_options.outputs.copilot_ai }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # Idempotency: on a re-run of a failed job the checked-out HEAD may
+          # already be this workflow's own docs commit — never bump twice.
+          # Jump straight to the common tail (tag + release for the current
+          # version).
+          HEAD_MSG=$(git log -1 --pretty=%s)
+          if printf '%s\n' "$HEAD_MSG" | grep -q "^chore(version): release v.* docs \[skip ci\]"; then
+            echo "$(m wf_release.head_is_docs_commit)"
+            exit 0
+          fi
+
+          # Commits (and diff-stat) since the last tag — this is "what's in
+          # this release" for trunk-based pushes. Fall back to the full
+          # history / a diff against the empty tree on the first-ever
+          # release (no previous tag to diff against).
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            echo "$(m wf_release.collect_since last_tag="$LAST_TAG")"
+            LOG_RANGE="${LAST_TAG}..HEAD"
+            DIFF_BASE="$LAST_TAG"
+          else
+            echo "$(m wf_release.collect_all)"
+            LOG_RANGE="HEAD"
+            DIFF_BASE="4b825dc642cb6eb9a060e54bf8d69288fbee4904" # git empty tree hash
+          fi
+          git log --pretty=%s "$LOG_RANGE" > commits.txt
+          # Body-footer BREAKING CHANGE: lines are appended after the subject list, one per
+          # line. The script reads each line as one entry, so passing the whole body (%B)
+          # would turn description lines into change entries.
+          git log --pretty=%b "$LOG_RANGE" | grep -E '^BREAKING[ -]CHANGE[[:space:]]*:' >> commits.txt || true
+          git diff --stat "${DIFF_BASE}..HEAD" > _full_diff_stat.txt
+          if [ "$(wc -l < _full_diff_stat.txt)" -gt 49 ]; then
+            { head -49 _full_diff_stat.txt; tail -1 _full_diff_stat.txt; } > diff_stat.txt
+          else
+            cp _full_diff_stat.txt diff_stat.txt
+          fi
+          rm -f _full_diff_stat.txt
+
+          if [ "${{ steps.semver_options.outputs.semver_auto }}" = "true" ]; then
+            BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump --commits-file commits.txt | tail -n 1)
+          else
+            BUMP="patch"
+          fi
+          echo "$(m wf_common.bump_level bump="$BUMP")"
+
+          NEW_VERSION=$(python3 .github/scripts/version_manager.py increment --bump "$BUMP" | tail -n 1)
+          if [ -z "$NEW_VERSION" ]; then
+            echo "$(m wf_common.version_bump_failed)"
+            exit 1
+          fi
+          python3 .github/scripts/version_manager.py sync
+          echo "$(m wf_release.release_version new_version="$NEW_VERSION" bump="$BUMP")"
+
+          python3 .github/scripts/changelog_manager.py ai-summary \
+            --commits-file commits.txt \
+            --version "$NEW_VERSION" \
+            --output summary.md \
+            --diff-stat-file diff_stat.txt
+
+          # Same input channel as AUTO-CHANGELOG-CONTROL:
+          # update-from-summary reads ./pr_body.md
+          cp summary.md pr_body.md
+
+          # note: `grep | sed || echo default` never fires the default (the
+          # pipeline exits with sed's 0) — default via ${var:-} instead
+          PROJECT_TYPES=$(grep "^project_types:" version.yml 2>/dev/null | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d '" ')
+          PROJECT_TYPES=${PROJECT_TYPES:-unknown}
+
+          export VERSION="$NEW_VERSION"
+          export PROJECT_TYPES
+          export TODAY=$(date '+%Y-%m-%d')
+          export TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%SZ')
+
+          python3 .github/scripts/changelog_manager.py update-from-summary
+          python3 .github/scripts/changelog_manager.py generate-md
+
+          rm -f pr_body.md summary.md commits.txt diff_stat.txt
+
+          # -A would also commit runner temp files and caches into the user's repo.
+          # Version files are already tracked, so -u is enough; only a CHANGELOG
+          # created by the first release is added separately (skipped if ignored).
+          git add -u
+          git ls-files -z --others --exclude-standard -- CHANGELOG.json CHANGELOG.md | xargs -0 -r git add --
+          if git diff --staged --quiet; then
+            echo "$(m wf_common.no_changes)"
+          else
+            git commit -m "chore(version): release v${NEW_VERSION} docs [skip ci]"
+
+            # >>> push-with-retry
+            # Race-condition guard: fetch -> rebase -> push, retried. A concurrent
+            # README-only commit (date refresh) touches the same version line and
+            # conflicts on rebase; the remote README is kept and this run's version
+            # line is reapplied, so a README conflict never blocks the release.
+            PUSH_ERR="${RUNNER_TEMP:-/tmp}/push_err.txt"
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            PUSH_SUCCESS=false
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "$(m wf_common.push_attempt retry_count="$RETRY_COUNT" max_retries="$MAX_RETRIES")"
+
+              if git push origin HEAD:main 2> "$PUSH_ERR"; then
+                cat "$PUSH_ERR" >&2
+                PUSH_SUCCESS=true
+                echo "$(m wf_release.docs_pushed)"
+                break
+              fi
+
+              cat "$PUSH_ERR" >&2
+              # A branch-protection rejection is a standing rule, not a race: retrying cannot succeed
+              if grep -qiE "GH006|GH013|protected branch|repository rule violations" "$PUSH_ERR"; then
+                echo "::error::$(m wf_common.push_protected branch="main")"
+                echo "::error::$(m wf_release.push_protected_trunk branch="main")"
+                exit 1
+              fi
+
+              echo "$(m wf_common.push_failed_syncing)"
+              git fetch origin main
+              if git rebase origin/main; then
+                echo "$(m wf_common.rebase_ok)"
+                continue
+              fi
+
+              # Only README.md conflicting: "ours" is the remote side during a rebase
+              if [ "$(git diff --name-only --diff-filter=U)" = "README.md" ]; then
+                git checkout --ours -- README.md
+                python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); import version_manager as vm; vm.update_readme_version(vm.get_current_version())' || true
+                git add README.md
+                if GIT_EDITOR=true git rebase --continue; then
+                  echo "$(m wf_common.readme_conflict_resolved)"
+                  continue
+                fi
+              fi
+
+              echo "$(m wf_common.rebase_failed)"
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            done
+
+            if [ "$PUSH_SUCCESS" = false ]; then
+              echo "$(m wf_common.push_gave_up max_retries="$MAX_RETRIES")"
+              exit 1
+            fi
+            # <<< push-with-retry
+          fi
+
+      - name: Resolve version + idempotency guard
+        id: version
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          VERSION=$(python3 .github/scripts/version_manager.py get | tail -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "$(m wf_release.read_version_failed)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          git fetch --tags origin
+
+          # Recovery-aware idempotency: tag and release are checked
+          # separately, so a run that died between "tag pushed" and
+          # "release created" can be re-run and still publish the release.
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "$(m wf_release.tag_exists version="$VERSION")"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+            echo "$(m wf_release.release_exists version="$VERSION")"
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "$(m wf_release.publishing version="$VERSION")"
+          fi
+
+      - name: Create and push tag
+        if: steps.gate.outputs.proceed == 'true' && steps.version.outputs.tag_exists != 'true'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          echo "$(m wf_release.tag_pushed version="$VERSION")"
+
+      - name: Build release notes (changelog export + GitHub generate-notes)
+        if: steps.gate.outputs.proceed == 'true' && steps.version.outputs.release_exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # AI/changelog notes for this version
+          python3 .github/scripts/changelog_manager.py export --version "$VERSION" --output ai_notes.md || true
+
+          # GitHub-generated notes (contributors, compare link). Deliberately
+          # via the API instead of --generate-notes so both sources can be
+          # concatenated into a single notes file.
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="v$VERSION" --jq '.body' > gh_notes.md || true
+
+          {
+            if [ -s ai_notes.md ]; then
+              cat ai_notes.md
+              echo ""
+            fi
+            if [ -s gh_notes.md ]; then
+              echo "---"
+              echo ""
+              cat gh_notes.md
+            fi
+          } > notes.md
+
+          if [ ! -s notes.md ]; then
+            echo "Release v$VERSION" > notes.md
+          fi
+
+          echo "$(m wf_release.notes_assembled n="$(wc -c < notes.md)")"
+
+      - name: Create GitHub Release
+        if: steps.gate.outputs.proceed == 'true' && steps.version.outputs.release_exists != 'true'
+        env:
+          # Publishing with WORKFLOW_PAT lets the release event trigger follow-up workflows
+          # (npm publish etc.). Events created by GITHUB_TOKEN never wake other workflows
+          # (GitHub policy). Repos without a PAT must still release, so fall back to the
+          # default token.
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT || github.token }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md
+          echo "$(m wf_release.published version="$VERSION")"
+
+      - name: Trigger README-VERSION-UPDATE
+        # Pushes made with the bot token (GITHUB_TOKEN) never wake the README update
+        # workflow - that covers a release PR merged without a PAT and the [skip ci]
+        # version commits of the safety net and trunk-based releases.
+        # When a release is newly published, wake it once with the confirmed version
+        # (a duplicate run commits nothing if there is no change).
+        if: steps.gate.outputs.proceed == 'true' && steps.version.outputs.release_exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          if gh workflow run PROJECT-COMMON-README-VERSION-UPDATE.yaml --ref main; then
+            echo "$(m wf_release.readme_dispatch_ok)"
+          else
+            echo "::notice::$(m wf_release.readme_dispatch_skip)"
+          fi
+
+      - name: Trigger deploy workflows
+        # A release PR merged with the bot token (GITHUB_TOKEN) never wakes the
+        # main deploy workflows (on: push) - on a default install without a PAT,
+        # server/store deploys would never run. Only for such merges, wake the deploy
+        # workflows directly via workflow_dispatch. A PAT or human merge already fired
+        # the push event, so they are not woken again (no double deploy).
+        # Targets: installed workflows that list main in push.branches and
+        # have workflow_dispatch. Monorepo paths filters are evaluated against the same
+        # scope as the push (files changed by the merge commit).
+        if: >-
+          steps.gate.outputs.proceed == 'true' &&
+          steps.version.outputs.release_exists != 'true' &&
+          steps.mode.outputs.mode == 'pr-flow'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_WORKFLOW_PAT: ${{ secrets.WORKFLOW_PAT != '' }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          MAIN_BRANCH: "main"
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # Merge commit of this version's release PR - releases that are not merges
+          # (safety-net bump, manual republish) were already deployed by a human push,
+          # so they are skipped.
+          MERGE_LINE=$(git log --first-parent --pretty='%H %s' -n 100 | grep -m1 -F " chore(release): v${RELEASE_VERSION} (PR #" || true)
+          if [ -z "$MERGE_LINE" ]; then
+            echo "$(m wf_release.not_merge_release version="$RELEASE_VERSION")"
+            exit 0
+          fi
+          MERGE_SHA=${MERGE_LINE%% *}
+          PR_NUMBER=$(printf '%s\n' "$MERGE_LINE" | sed -n 's/.*(PR #\([0-9][0-9]*\)).*/\1/p')
+
+          # Decide from the merger whether a push event fired. If the lookup fails, fall back to whether a PAT is registered.
+          MERGED_BY=""
+          if [ -n "$PR_NUMBER" ]; then
+            MERGED_BY=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.merged_by.login // ""' 2>/dev/null || true)
+          fi
+          case "$MERGED_BY" in
+            # A GITHUB_TOKEN merger is exactly this login - another account sharing only the prefix counts as a human merge
+            "github-actions[bot]") echo "$(m wf_release.bot_merged pr="$PR_NUMBER")" ;;
+            "")
+              if [ "$HAS_WORKFLOW_PAT" = "true" ]; then
+                echo "$(m wf_release.merger_unknown_pat)"
+                exit 0
+              fi
+              echo "$(m wf_release.merger_unknown_nopat)"
+              ;;
+            *)
+              echo "$(m wf_release.human_merged pr="$PR_NUMBER" user="$MERGED_BY")"
+              exit 0
+              ;;
+          esac
+
+          CHANGED_FILES="${RUNNER_TEMP:-/tmp}/release_changed_files.txt"
+          git diff --name-only "${MERGE_SHA}^1" "$MERGE_SHA" > "$CHANGED_FILES" || rm -f "$CHANGED_FILES"
+          export CHANGED_FILES
+
+          # A heredoc inside a command substitution misparses quotes, so write it to a file first
+          FIND_DEPLOY="${RUNNER_TEMP:-/tmp}/find_deploy_workflows.py"
+          cat > "$FIND_DEPLOY" <<'PY'
+          import os, re
+
+          MARKER = "project-auto-wizard:managed-workflow"
+          BRANCH = os.environ["MAIN_BRANCH"]
+          CHANGED = None
+          if os.path.exists(os.environ.get("CHANGED_FILES", "")):
+              with open(os.environ["CHANGED_FILES"], encoding="utf-8") as f:
+                  CHANGED = [l.strip() for l in f if l.strip()]
+
+          # Read only the on block without a YAML library - do not assume the runner's Python has PyYAML.
+          def strip_comment(s):
+              q = None
+              for i, c in enumerate(s):
+                  if q:
+                      q = None if c == q else q
+                  elif c in "\"'":
+                      q = c
+                  elif c == "#" and (i == 0 or s[i - 1] in " \t"):
+                      return s[:i].rstrip()
+              return s.rstrip()
+
+          def unquote(v):
+              v = v.strip()
+              return v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else v
+
+          # GitHub filter syntax: ** matches everything including /, * and ? never cross /. A later ! pattern reverses an earlier match.
+          def glob_re(p):
+              out, i = "", 0
+              while i < len(p):
+                  if p.startswith("**", i):
+                      out, i = out + ".*", i + 2
+                  elif p[i] in "*?":
+                      out, i = out + ("[^/]*" if p[i] == "*" else "[^/]"), i + 1
+                  else:
+                      out, i = out + re.escape(p[i]), i + 1
+              return re.compile(out + r"\Z")
+
+          def matches(pats, value):
+              hit = False
+              for p in pats:
+                  neg = p.startswith("!")
+                  if glob_re(p[1:] if neg else p).match(value):
+                      hit = not neg
+              return hit
+
+          def mapping(lines):
+              if not lines:
+                  return {}
+              base = min(i for i, _ in lines)
+              res = {}
+              for n, (ind, text) in enumerate(lines):
+                  m = re.match(r"""^["']?([\w-]+)["']?\s*:(?:\s+(.*))?$""", text)
+                  if ind != base or text.startswith("- ") or not m:
+                      continue
+                  sub = []
+                  for ind2, text2 in lines[n + 1:]:
+                      if ind2 < ind or (ind2 == ind and not text2.startswith("- ")):
+                          break
+                      sub.append((ind2, text2))
+                  res[m.group(1)] = (m.group(2) or "", sub)
+              return res
+
+          def items(entry):
+              inline, sub = entry
+              if inline.startswith("["):
+                  return [unquote(x) for x in inline.strip("[]").split(",") if x.strip()]
+              if inline:
+                  return [unquote(inline)]
+              return [unquote(t[2:]) for _, t in sub if t.startswith("- ")]
+
+          def is_target(path):
+              with open(path, encoding="utf-8") as f:
+                  raw = f.read()
+              if MARKER not in raw:
+                  return False
+              lines = []
+              for l in raw.splitlines():
+                  s = strip_comment(l)
+                  if s.strip():
+                      lines.append((len(s) - len(s.lstrip()), s.strip()))
+              on = mapping(lines).get("on")
+              events = mapping(on[1]) if on else {}
+              push = events.get("push")
+              if "workflow_dispatch" not in events or not push:
+                  return False
+              f = mapping(push[1])
+              if "branches" not in f or not matches(items(f["branches"]), BRANCH):
+                  return False
+              if CHANGED is not None:
+                  if "paths" in f and not any(matches(items(f["paths"]), c) for c in CHANGED):
+                      return False
+                  if "paths-ignore" in f and all(matches(items(f["paths-ignore"]), c) for c in CHANGED):
+                      return False
+              return True
+
+          root = ".github/workflows"
+          for name in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+              # Common workflows (release, README, safety net) are not deploys; each is woken separately where needed
+              if name.startswith("PROJECT-COMMON-") or not re.search(r"\.ya?ml$", name):
+                  continue
+              if is_target(os.path.join(root, name)):
+                  print(name)
+          PY
+          TARGETS=$(python3 "$FIND_DEPLOY")
+
+          if [ -z "$TARGETS" ]; then
+            echo "$(m wf_release.no_targets branch="$MAIN_BRANCH")"
+            exit 0
+          fi
+
+          FAILED=0
+          for WF in $TARGETS; do
+            # Running without inputs uses the workflow_dispatch input defaults (e.g. the deploy mode chosen at install time)
+            if gh workflow run "$WF" --ref main; then
+              echo "$(m wf_release.deploy_trigger_ok wf="$WF")"
+            else
+              FAILED=1
+              echo "::warning::$(m wf_release.deploy_trigger_warn wf="$WF")"
+            fi
+          done
+          exit "$FAILED"

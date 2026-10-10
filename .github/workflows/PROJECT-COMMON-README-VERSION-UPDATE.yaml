@@ -1,0 +1,359 @@
+# project-auto-wizard:managed-workflow
+# PROJECT-COMMON-README-VERSION-UPDATE.yaml
+# Automatic README version update workflow
+#
+# On every push to main this workflow reads the latest version
+# via version_manager.py and rewrites the version section of README.md.
+#
+# How it works:
+# 1. Triggered by a push to main
+# 2. Reads the latest version via version_manager.py
+# 3. Updates the version line in README.md
+# 4. Commits and pushes the change ([skip ci])
+#
+# Supported version line formats (case-insensitive, flexible spacing):
+# - ## <Korean "latest version", with or without a space> : v1.0.0 (2025-08-15)
+# - ## Current Version : v1.0.0 (2025-08-15)
+# - ## Recent Version : v1.0.0 (2025-08-15)
+# - ## Latest Version : v1.0.0
+# - ## Version : v1.0.0
+# - ## <Korean "version"> : v1.0.0
+#
+# The marker comment <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
+# is added automatically above the version line.
+#
+# Unsupported formats (will fail):
+# - markdown bold (**) inside the version line
+# - missing colon
+# - regex special characters (*, [, ], ^, $) in the version line
+#
+# Environment variables:
+# - SHOW_DATE: whether to append the date (true/false, default: true)
+#   * true:  v1.0.0 (2025-08-16)
+#   * false: v1.0.0
+#
+# Note: pushes made with GITHUB_TOKEN (a release PR merged without
+# WORKFLOW_PAT, the [skip ci] version commits of the safety net and of
+# trunk-based releases) never trigger this workflow. RELEASE-PUBLISH
+# therefore dispatches it right after publishing a release, so the
+# README always ends on the released version. Run it manually
+# (workflow_dispatch) to catch up at any other time.
+#
+# trunk-based mode: RELEASE-PUBLISH bumps the version, rewrites the README
+# line in its own commit and then dispatches this workflow, so the push
+# run is skipped there. Two workflows committing to the same README line
+# at the same time is what made releases fail on a rebase conflict.
+#
+# Push conflicts: if the README on main moved in the meantime
+# (a release commit rewrote the same line), a run that shows the same
+# version, or whose version is already stale, is skipped instead of failing.
+#
+# The version line under the AUTO-VERSION-SECTION marker is already
+# rewritten inside the release commit itself (version_manager.py
+# increment/set), so the release tag snapshot shows the released
+# version. This workflow still inserts a missing line/marker and
+# refreshes the date.
+
+name: README VERSION UPDATE
+
+env:
+  # Whether to show the date next to the version (true/false)
+  SHOW_DATE: true
+  # Keep script imports from creating .github/scripts/__pycache__ so it never ends up in bot commits
+  PYTHONDONTWRITEBYTECODE: "1"
+
+concurrency:
+  group: readme-version-update
+  cancel-in-progress: false
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-readme:
+    name: Update README version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: "main"
+
+      - name: Git config
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Detect branch mode
+        id: mode
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # scoped to the metadata: -> template: -> branches: chain so an
+          # unrelated top-level "mode:" key can never hijack the value
+          MODE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?branches:.*?mode:\s*\"?([A-Za-z-]+)", t, re.S); print(m.group(1) if m else "pr-flow")' 2>/dev/null || echo "pr-flow")
+          # A push in trunk-based mode is a release: RELEASE-PUBLISH rewrites the
+          # README itself and dispatches this workflow afterwards. Running on the
+          # push too would race it on the same README line.
+          if [ "$MODE" = "trunk-based" ] && [ "${{ github.event_name }}" = "push" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "$(m wf_readme.trunk_skip)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check README.md exists
+        id: precheck
+        if: steps.mode.outputs.skip != 'true'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          if [ -f README.md ]; then
+            echo "readme_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "readme_exists=false" >> $GITHUB_OUTPUT
+            echo "$(m wf_readme.not_found)"
+          fi
+
+      - name: Read latest version via version_manager.py
+        id: version_info
+        if: steps.precheck.outputs.readme_exists == 'true'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          LATEST_VERSION=$(python3 .github/scripts/version_manager.py get | tail -n 1)
+          # Guard: an empty version must never reach the README rewrite —
+          # it would commit a corrupted "v (date)" line.
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "$(m wf_readme.read_version_failed)"
+            exit 1
+          fi
+          RELEASE_DATE=$(date '+%Y-%m-%d')
+
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
+
+      - name: Update version line in README.md
+        if: steps.precheck.outputs.readme_exists == 'true'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          LATEST_VERSION="${{ steps.version_info.outputs.latest_version }}"
+          RELEASE_DATE="${{ steps.version_info.outputs.release_date }}"
+          SHOW_DATE="${{ env.SHOW_DATE }}"
+
+          # Hangul in the Korean heading patterns below is written as UTF-8 byte escapes so
+          # this file stays ASCII-only; they match the same README headings byte for byte.
+          KO_LATEST=$'\354\265\234\354\213\240'   # Korean "latest"
+          KO_VERSION=$'\353\262\204\354\240\204'  # Korean "version"
+
+          # Error message helper
+          print_error_message() {
+            local error_type="$1"
+            local version_line="$2"
+            local header_part="$3"
+            local version_text="$4"
+
+            echo ""
+            echo "$(m wf_readme.update_failed)"
+            echo "$(m wf_readme.err_type error_type="$error_type")"
+            echo "$(m wf_readme.err_current_line version_line="$version_line")"
+            echo "$(m wf_readme.err_header header_part="$header_part")"
+            echo "$(m wf_readme.err_new_text version_text="$version_text")"
+            echo ""
+            echo "$(m wf_readme.hint_formats)"
+            echo "  $(m wf_readme.hint_first_example)"
+            echo "  ## Current Version : v1.0.0"
+            echo "  ## Version : v1.0.0"
+            echo "$(m wf_readme.hint_notes)"
+            echo "$(m wf_readme.hint_no_bold)"
+            echo "$(m wf_readme.hint_no_regex)"
+            echo "$(m wf_readme.hint_after_colon)"
+          }
+
+          if [ "$SHOW_DATE" = "true" ]; then
+            VERSION_TEXT="v${LATEST_VERSION} (${RELEASE_DATE})"
+            echo "$(m wf_readme.text_with_date version_text="$VERSION_TEXT")"
+          else
+            VERSION_TEXT="v${LATEST_VERSION}"
+            echo "$(m wf_readme.text version_text="$VERSION_TEXT")"
+          fi
+
+          # Patterns for recognized version lines (case-insensitive, flexible spacing)
+          VERSION_PATTERNS=(
+            "^##[[:space:]]*${KO_LATEST}[[:space:]]*${KO_VERSION}[[:space:]]*:"
+            "^##[[:space:]]*${KO_LATEST}${KO_VERSION}[[:space:]]*:"
+            "^##[[:space:]]*[Cc]urrent[[:space:]]*[Vv]ersion[[:space:]]*:"
+            "^##[[:space:]]*[Rr]ecent[[:space:]]*[Vv]ersion[[:space:]]*:"
+            "^##[[:space:]]*[Vv]ersion[[:space:]]*:"
+            "^##[[:space:]]*${KO_VERSION}[[:space:]]*:"
+            "^##[[:space:]]*[Ll]atest[[:space:]]*[Vv]ersion[[:space:]]*:"
+          )
+
+          VERSION_LINE=""
+          PATTERN_FOUND=""
+
+          for pattern in "${VERSION_PATTERNS[@]}"; do
+            if grep -qi "$pattern" README.md; then
+              VERSION_LINE=$(grep -i "$pattern" README.md | head -n 1)
+              PATTERN_FOUND="$pattern"
+              echo "$(m wf_readme.line_found version_line="$VERSION_LINE")"
+              break
+            fi
+          done
+
+          # No version line yet — insert a default one
+          if [ -z "$VERSION_LINE" ]; then
+            echo "$(m wf_readme.line_inserting)"
+            # Heading wording follows the configured language; an existing line keeps its own wording
+            DEFAULT_HEADING=$(m wf_readme.default_heading)
+
+            if grep -q "^# " README.md; then
+              # right after the first title
+              sed -i '/^# /a\\n<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->\n## '"$DEFAULT_HEADING"' : '"$VERSION_TEXT" README.md
+            else
+              # at the very top of the file
+              sed -i '1i\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->\n## '"$DEFAULT_HEADING"' : '"$VERSION_TEXT"'\n' README.md
+            fi
+            echo "$(m wf_readme.line_inserted version_text="$VERSION_TEXT")"
+          else
+            # Update the existing version line
+
+            # Validate the line format
+            if [[ "$VERSION_LINE" =~ \*\* ]]; then
+              echo ""
+              echo "$(m wf_readme.warn_bold)"
+              echo "$(m wf_readme.warn_current_line version_line="$VERSION_LINE")"
+              echo "$(m wf_readme.warn_may_break)"
+              echo ""
+            fi
+
+            # Make sure the AUTO-VERSION-SECTION marker sits above the line
+            LINE_NUMBER=$(grep -n -i "$PATTERN_FOUND" README.md | head -n 1 | cut -d: -f1)
+            PREV_LINE_NUMBER=$((LINE_NUMBER - 1))
+
+            if [ $PREV_LINE_NUMBER -gt 0 ]; then
+              PREV_LINE=$(sed -n "${PREV_LINE_NUMBER}p" README.md)
+              if [[ "$PREV_LINE" != *"AUTO-VERSION-SECTION"* ]]; then
+                sed -i "${PREV_LINE_NUMBER}a\\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->" README.md
+                echo "$(m wf_readme.marker_added)"
+                LINE_NUMBER=$((LINE_NUMBER + 1))
+              fi
+            else
+              sed -i '1i\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->' README.md
+              echo "$(m wf_readme.marker_added)"
+              LINE_NUMBER=$((LINE_NUMBER + 1))
+            fi
+
+            # Extract the header part (up to the colon)
+            HEADER_PART=$(printf '%s\n' "$VERSION_LINE" | sed 's/\(.*:\).*/\1 /')
+
+            if [ -z "$HEADER_PART" ] || [[ "$HEADER_PART" == "$VERSION_LINE" ]]; then
+              print_error_message "$(m wf_readme.err_no_colon)" "$VERSION_LINE" "$HEADER_PART" "$VERSION_TEXT"
+              exit 1
+            fi
+
+            # Replace by line number (avoids regex special-char issues)
+            NEW_LINE="${HEADER_PART}${VERSION_TEXT}"
+
+            # Escape sed replacement metacharacters (backslash, & and the
+            # | delimiter) coming from README content so they cannot inject
+            # into the replacement expression
+            ESCAPED_LINE=$(printf '%s' "$NEW_LINE" | sed 's/[&\\|]/\\&/g')
+
+            if ! sed -i "${LINE_NUMBER}s|.*|${ESCAPED_LINE}|" README.md 2>/tmp/sed_error.log; then
+              SED_ERROR=$(cat /tmp/sed_error.log 2>/dev/null || m wf_readme.err_sed_unknown)
+              print_error_message "$(m wf_readme.err_sed error="$SED_ERROR")" "$VERSION_LINE" "$HEADER_PART" "$VERSION_TEXT"
+              exit 1
+            fi
+
+            # Verify the replacement
+            UPDATED_LINE=$(sed -n "${LINE_NUMBER}p" README.md)
+            if [[ "$UPDATED_LINE" != *"$VERSION_TEXT"* ]]; then
+              print_error_message "$(m wf_readme.err_verify)" "$VERSION_LINE" "$HEADER_PART" "$VERSION_TEXT"
+              echo "$(m wf_readme.updated_line_detail updated_line="$UPDATED_LINE")"
+              exit 1
+            fi
+
+            echo "$(m wf_readme.line_updated version_text="$VERSION_TEXT")"
+          fi
+
+      - name: Commit and push changes
+        if: steps.precheck.outputs.readme_exists == 'true'
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          git add README.md
+
+          if git diff --staged --quiet; then
+            echo "$(m wf_readme.no_changes)"
+          else
+            VERSION="${{ steps.version_info.outputs.latest_version }}"
+
+            git commit -m "docs(readme): update version to v$VERSION [skip ci]"
+
+            # >>> push-with-retry
+            # Race-condition guard: fetch -> rebase -> push, retried
+            PUSH_ERR="${RUNNER_TEMP:-/tmp}/push_err.txt"
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            PUSH_SUCCESS=false
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "$(m wf_common.push_attempt retry_count="$RETRY_COUNT" max_retries="$MAX_RETRIES")"
+
+              if git push origin HEAD:main 2> "$PUSH_ERR"; then
+                cat "$PUSH_ERR" >&2
+                PUSH_SUCCESS=true
+                echo "$(m wf_readme.pushed)"
+                break
+              fi
+
+              cat "$PUSH_ERR" >&2
+              # A branch-protection rejection is a standing rule, not a race: retrying cannot succeed
+              if grep -qiE "GH006|GH013|protected branch|repository rule violations" "$PUSH_ERR"; then
+                echo "::error::$(m wf_common.push_protected branch="main")"
+                exit 1
+              fi
+
+              echo "$(m wf_common.push_failed_syncing)"
+              git fetch origin main
+              if git rebase origin/main; then
+                echo "$(m wf_common.rebase_ok)"
+                continue
+              fi
+              git rebase --abort 2>/dev/null || true
+
+              # The same README line was rewritten on the remote (a release commit).
+              # Nothing is lost when it already shows this version or is ahead of it.
+              REMOTE_VERSION=$(git show origin/main:version.yml | grep -m1 '^version:' | sed 's/version:[ \t]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/')
+              if [ -n "$REMOTE_VERSION" ] && [ "$REMOTE_VERSION" != "$VERSION" ]; then
+                echo "$(m wf_readme.conflict_skip_stale version="$VERSION" remote_version="$REMOTE_VERSION")"
+                PUSH_SUCCESS=true
+                break
+              fi
+              if git show origin/main:README.md | grep -qF "v${VERSION}"; then
+                echo "$(m wf_readme.conflict_skip_same version="$VERSION")"
+                PUSH_SUCCESS=true
+                break
+              fi
+
+              echo "$(m wf_common.rebase_failed)"
+              exit 1
+            done
+
+            if [ "$PUSH_SUCCESS" = false ]; then
+              echo "$(m wf_common.push_gave_up max_retries="$MAX_RETRIES")"
+              exit 1
+            fi
+            # <<< push-with-retry
+          fi

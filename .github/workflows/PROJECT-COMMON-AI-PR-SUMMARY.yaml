@@ -1,0 +1,170 @@
+# project-auto-wizard:managed-workflow
+# PROJECT-COMMON-AI-PR-SUMMARY.yaml
+# Self-hosted AI PR summary bot — no third-party service required.
+#
+# Posts a summary comment on PRs targeting the default branch, using the
+# same engine chain as the release changelog (user API key -> Copilot CLI,
+# opt-in via version.yml copilot_ai -> rule-based fallback).
+# The prompt includes commit subjects plus a capped `git diff --stat`.
+# The summary header shows the version this PR is expected to ship in
+# (current version + the bump the post-merge workflow will apply), not
+# the version that is already released.
+#
+# On release PRs (head branch == main) this job is skipped.
+# PROJECT-COMMON-AUTO-CHANGELOG-CONTROL owns that case: it confirms
+# the version first, then posts the AI summary itself using the
+# confirmed version. Running this workflow too would post a comment
+# with the pre-bump version — it always checks out the head branch
+# before AUTO-CHANGELOG-CONTROL's version-confirm commit lands, and
+# that commit is pushed with GITHUB_TOKEN, which GitHub does not use
+# to retrigger pull_request events, so there would be no later run to
+# correct it.
+
+name: PROJECT-AI-PR-SUMMARY
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  copilot-requests: write
+
+concurrency:
+  group: ai-pr-summary-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-pr-summary:
+    name: Post AI summary comment
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Read copilot_ai option from version.yml
+        id: copilot_options
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          # scoped to the metadata: -> template: -> options: chain so an
+          # unrelated "copilot_ai:" key can never hijack the value
+          COPILOT_AI=$(python3 "$GITHUB_WORKSPACE/.github/scripts/version_manager.py" option copilot_ai --default false || echo "false")
+          echo "copilot_ai=$COPILOT_AI" >> $GITHUB_OUTPUT
+          echo "$(m wf_common.copilot_ai_option copilot_ai="$COPILOT_AI")"
+
+      - name: Install Copilot CLI
+        if: steps.copilot_options.outputs.copilot_ai == 'true'
+        continue-on-error: true
+        run: npm install -g @github/copilot@1.0.88
+
+      - name: Generate and post AI summary
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_API_BASE_URL: ${{ vars.AI_API_BASE_URL }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AI: ${{ steps.copilot_options.outputs.copilot_ai }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          git fetch origin main
+          git log --cherry-pick --right-only --pretty=%s "origin/main...HEAD" > commits.txt
+          # Body-footer BREAKING CHANGE: lines are appended after the subject list, one per
+          # line. The script reads each line as one entry, so passing the whole body (%B)
+          # would turn description lines into change entries.
+          git log --cherry-pick --right-only --pretty=%b "origin/main...HEAD" | grep -E '^BREAKING[ -]CHANGE[[:space:]]*:' >> commits.txt || true
+          git diff --stat "origin/main...HEAD" > _full_diff_stat.txt
+          if [ "$(wc -l < _full_diff_stat.txt)" -gt 49 ]; then
+            { head -49 _full_diff_stat.txt; tail -1 _full_diff_stat.txt; } > diff_stat.txt
+          else
+            cp _full_diff_stat.txt diff_stat.txt
+          fi
+          rm -f _full_diff_stat.txt
+
+          # The header shows the version this PR will get once merged, not the version
+          # that is already published. Same rules as whatever bumps the version after the
+          # merge: in trunk-based mode RELEASE-PUBLISH picks the bump size from the commits
+          # when semver_auto is on, and in pr-flow a PR going straight into main
+          # gets a patch bump from the VERSION-CONTROL safety net. It is only an estimate,
+          # so rules alone are used, without any AI-assisted classification.
+          CURRENT_VERSION=$(python3 .github/scripts/version_manager.py get 2>/dev/null | tail -n 1)
+          MODE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?branches:.*?mode:\s*\"?([A-Za-z-]+)", t, re.S); print(m.group(1) if m else "pr-flow")' 2>/dev/null || echo "pr-flow")
+          SEMVER_AUTO=$(python3 .github/scripts/version_manager.py option semver_auto --default false || echo "false")
+          BUMP="patch"
+          if [ "$MODE" = "trunk-based" ] && [ "$SEMVER_AUTO" = "true" ]; then
+            BUMP=$(AI_API_KEY="" COPILOT_AI="false" python3 .github/scripts/changelog_manager.py classify-bump --commits-file commits.txt 2>/dev/null | tail -n 1)
+          fi
+          VERSION=$(python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); from version_manager import increment_version; print(increment_version(sys.argv[1], sys.argv[2]))' "$CURRENT_VERSION" "${BUMP:-patch}" 2>/dev/null || echo "")
+          VERSION=${VERSION:-Unreleased}
+          echo "$(m wf_aisum.expected_version version="$VERSION" current_version="${CURRENT_VERSION:-none}" mode="$MODE" bump="${BUMP:-patch}")"
+
+          SUMMARY_RESULT=$(python3 .github/scripts/changelog_manager.py ai-summary \
+            --commits-file commits.txt \
+            --version "$VERSION" \
+            --output summary.md \
+            --pr-title "$PR_TITLE" \
+            --diff-stat-file diff_stat.txt | tail -n 1)
+          ENGINE=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("engine") or "unknown")' "$SUMMARY_RESULT" 2>/dev/null || echo "unknown")
+          # On fallback, append the reason (the script also emits it as ::warning::) to the engine line so the cause is visible without opening the job log
+          FALLBACK_REASON=$(python3 -c 'import html,json,sys; print(html.escape((json.loads(sys.argv[1]).get("fallback_reason") or "")[:200]))' "$SUMMARY_RESULT" 2>/dev/null || echo "")
+          ENGINE_LINE="$ENGINE${FALLBACK_REASON:+ ($FALLBACK_REASON)}"
+          m wf_aisum.engine_label engine="$ENGINE_LINE" >> "$GITHUB_STEP_SUMMARY"
+
+          # Find this bot's earlier summary comment by its marker and replace it with the latest content so pushes do not pile up comments
+          MARKER="<!-- project-auto-wizard:pr-summary -->"
+          {
+            echo "$MARKER"
+            m wf_aisum.summary_heading
+            echo ""
+            cat summary.md
+            echo ""
+            echo "<sub>$(m wf_aisum.engine_label engine="$ENGINE_LINE")</sub>"
+          } > comment_body.md
+
+          python3 -c 'import json; print(json.dumps({"body": open("comment_body.md", encoding="utf-8").read()}))' > comment_payload.json
+
+          COMMENT_ID=$(gh api --paginate "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$MARKER\"))) | .id" 2>/dev/null | tail -n 1 || true)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" --input comment_payload.json > /dev/null \
+              || echo "$(m wf_aisum.comment_update_failed)"
+          else
+            gh api -X POST "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" --input comment_payload.json > /dev/null \
+              || echo "$(m wf_aisum.comment_post_failed)"
+          fi
+
+      - name: Link related issue via branch name
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Pass the branch name through env instead of interpolating ${{ }} into the run:
+          # script - git ref names can contain $, backticks, semicolons and so on, so direct
+          # interpolation would be a shell-injection path (same reason as PR_TITLE in
+          # AUTO-CHANGELOG-CONTROL).
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          [ -f "$GITHUB_WORKSPACE/.github/scripts/messages.py" ] || { echo "::error::messages.py is missing; rerun \`npx project-auto-wizard --mode full --force\`"; exit 1; }
+          m() { python3 "$GITHUB_WORKSPACE/.github/scripts/messages.py" get "$@"; }
+          ISSUE_NUM=$(python3 .github/scripts/issue_helper.py extract-branch-issue "$HEAD_REF")
+
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "$(m wf_aisum.no_issue_in_branch ref="$HEAD_REF")"
+            exit 0
+          fi
+
+          python3 .github/scripts/issue_helper.py link-pr-issues \
+            --pr ${{ github.event.pull_request.number }} \
+            --issue-numbers "$ISSUE_NUM"

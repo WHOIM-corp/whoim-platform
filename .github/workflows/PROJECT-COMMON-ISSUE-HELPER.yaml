@@ -1,0 +1,48 @@
+# project-auto-wizard:managed-workflow
+# PROJECT-COMMON-ISSUE-HELPER.yaml
+# Suggest a branch name and commit message as a comment when an issue is created or retitled
+#
+# When an issue is opened, or its title is edited (edited + title changed),
+# the normalized branch name and commit message are posted (or updated) as an
+# issue comment.
+# Set ISSUE_HELPER_CREATE_BRANCH=true to also create the branch
+# (default is false - opt-in, so a branch is not created automatically
+# every time an issue is opened).
+#
+# The logic lives in .github/scripts/issue_helper.py (a Python rewrite of
+# Chuseok22/github-issue-helper, same author).
+
+name: PROJECT-ISSUE-HELPER
+
+on:
+  issues:
+    types: [opened, edited]
+
+# contents is always fixed to write. Creating a branch through the git/refs API
+# when ISSUE_HELPER_CREATE_BRANCH="true" needs write, and users can switch that
+# value on themselves after install (via the wizard ask marker, without re-running the
+# wizard), so there is no way to raise permissions conditionally at that point.
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  issue-helper:
+    name: Branch name & commit message guide
+    if: github.event.action == 'opened' || (github.event.action == 'edited' && github.event.changes.title)
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_HELPER_BRANCH_PREFIX: ""
+      ISSUE_HELPER_MAX_BRANCH_LENGTH: "100"
+      # Optional override of the commit message template (the default follows the workflow language):
+      # ISSUE_HELPER_COMMIT_TEMPLATE: "${issueTitle} : feat : {description of the change} ${issueUrl}"
+      ISSUE_HELPER_CREATE_BRANCH: "true"
+      ISSUE_HELPER_BASE_BRANCH: "main"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Generate branch name & commit message
+        id: issue-helper
+        run: python3 .github/scripts/issue_helper.py run
