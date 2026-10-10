@@ -1,0 +1,10 @@
+.idea
+.DS_Store
+.env.*
+application-*.yml
+.issue
+.report
+docs
+.docs
+issue
+report
