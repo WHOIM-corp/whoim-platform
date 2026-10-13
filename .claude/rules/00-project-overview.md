@@ -20,7 +20,7 @@
 ## Schedule (사용자 확인, 2026-10-10 기준)
 
 - 1차 예선 결과 10/14, 본선 11/4(수) 18:00. 본선은 제출한 기획안을 메이킹한 결과물이다.
-- 본선 구현은 Hero Flow(Evidence-first, TRACE, Verified TRACE, Decision Reuse) 하나만 완성하는 방향이다. 상세는 미확정이다.
+- 본선 구현 범위는 아래 "Implementation scope"를 따른다.
 
 ## Structure and stack
 
@@ -36,13 +36,24 @@
 - web: `cd web && npm ci`, `npm run dev`, `npm run build`, `npm run lint`
 - Caveat: 현재 `application-dev.yml`과 `application-prod.yml`은 비어 있고(0 bytes) `application.yml`에 datasource가 없다. 사용자가 dev yml을 채우고 `SPRING_PROFILES_ACTIVE=dev`로 실행하기 전에는 `bootRun`이 기동되지 않고 `ServerApplicationTests#contextLoads`도 실패한다.
 
-## Not decided yet
+## Implementation scope (사용자 확정, 2026-10-13 기준)
 
-- 아래 영역은 추후 논의 대상이다. 확정 전에는 사용자 지시 없이 구현하지 않는다.
-- 구현 범위(MVP, Hero Flow 상세)
-- AI/LLM 규칙(LLMProvider 추상화, DLP, 사용할 LLM, API 키)
-- 데이터·개인정보 규칙
-- 인증·권한 구조(현재는 Spring Security 기본값. `SecurityConfig`에서 `/actuator/health`만 permitAll)
+- Goal: Hero Flow(Evidence-first → TRACE → Verified TRACE → Decision Reuse) 하나만 완성한다. 본선(11/4)은 영상 + 현장 시연이고, 개발은 단독 약 3주다.
+- P0: 데이터 모델과 상태 Enum, JWT 인증, 인터뷰(3~5턴, 텍스트만) → TRACE Card 생성, 전임자 리뷰(필드 수정 + Confirm), 관리자 핵심(Card 목록·상세, Approve, Request Revision, Package 진행률·READY·Publish), 후임자 Guided Decision Support(`PUBLISHED`+`APPROVED` Card만 → 역질문 → Card 제시, Settlement Batch 두 분기).
+- P1: Evidence 업로드(`.md`·`.txt`)와 Gap Detection, 관리자 보조(Reject, 이력 타임라인, 사용자 관리), DLP(Rule/Regex).
+- P2: Gap Detection 일반화, Fail-Closed 시연 코드, UI polish.
+- Excluded: 실제 Connector, Scheduler, Enterprise TRACE Search, Versioning UI, 대시보드, 알림, 음성, SSO, 멀티테넌시, 시드 로더, 벡터 DB, Claim 단위 Evidence. 사용자 지시 없이 구현하지 않는다.
+- Order: ① 모델·인증 골격 → ② 인터뷰·Card 생성·전임자 리뷰 → ③ 관리자 페이지 → ④ 후임자 Decision Support → ⑤ Evidence·Gap Detection → ⑥ DLP·Hard Rule 보강
+- Quality: 관리자 핵심은 정상·예외·상태 오류까지 완성도를 높이고, 보조 기능은 단순하게 만든다.
+- Data: 합성 데이터만 쓴다. 실제 회사·인물·내부 정보를 코드, 테스트, 스크린샷에 넣지 않는다. 합성 데이터와 시연 대본은 Claude가 초안을 쓰고 사용자가 검수한다.
+- Initial data: 시드 로더는 없다. 초기 관리자 1명만 설정 값으로 생성하고 나머지는 앱 기능(UI/API)으로 입력한다. Gap은 Gap Detection 구현 전까지 API로 등록한다. 시연 직전 DB 복구는 사용자가 한다.
+
+## Still open
+
+- 아래는 아직 정해지지 않았다. 확정 전에는 사용자 지시 없이 구현하지 않는다.
+- UI 방향과 mock 디자인(합의 후 구현, `20-web.md`)
+- SUH AI 연동 정보와 전체 API 엔드포인트(한 이슈에서 정리)
+- 합성 데이터와 시연 대본의 세부 내용
 
 ## Reference documents
 

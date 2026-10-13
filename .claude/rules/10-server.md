@@ -42,8 +42,21 @@ paths:
 
 ## Security
 
-- 현황: `SecurityConfig`는 `/actuator/health`만 `permitAll`, 나머지는 인증 필요, `formLogin`+`httpBasic` 기본값이다. Actuator 노출은 `health`뿐이다.
-- 인증·권한 구조는 추후 논의 — 확정 전 사용자 지시 없이 구현하거나 `SecurityConfig`를 바꾸지 않는다.
+- Auth: JWT(Access Token만, `Authorization` 헤더), 리프레시 토큰 없음. 만료는 시연 중 끊기지 않게 넉넉히 둔다.
+- Accounts: 회원가입 없음. 초기 관리자 1명을 설정 값으로 생성하고 나머지는 관리자 화면에서 추가·역할 지정한다. 역할은 전임자, 후임자, 회사 관리자 3종이고 조직은 단일이다(멀티테넌시 없음).
+- Authorization: 역할별 API 접근 제한 + 소유 제한(전임자는 자기 Card, 후임자는 지정된 Package의 Published Card만, 관리자는 전체). 세부 권한 매트릭스와 SSO는 하지 않는다.
+- CORS: 구현 시 `https://www.whoim.chuseok22.com`과 로컬 Vite dev 주소만 허용한다.
+- 현황: `SecurityConfig`는 아직 기본값(`formLogin`+`httpBasic`, `/actuator/health`만 `permitAll`)이다. JWT 구현 시 바꾸되 `/actuator/health`는 계속 열어 둔다(CD 헬스체크). Actuator 노출은 `health`뿐이다.
+
+## LLM
+
+- Provider: `LLMProvider` 인터페이스 뒤에 SUH AI(Gemma 4 E4B, 전용 어댑터, 연동 방식은 추후 정리)를 기본으로, Gemini Flash-Lite급을 fallback으로 둔다. 모델명은 설정 값으로 두고 코드에 박지 않는다. API 키는 `application-*.yml`에만 둔다.
+- Routing: 작업별 Provider를 설정으로 고른다(`llm.interview.provider`, `llm.card.provider`). 인터뷰·Card 생성 구현 직전에 시연 시나리오 하나를 같은 프롬프트로 Gemma와 fallback에 돌려 JSON 유효율, TRACE 필드 충족, 한국어 품질을 비교하고 라우팅을 확정한다.
+- Flow: 인터뷰 턴마다 `{다음 질문, 추출한 TRACE 요소, 비어 있는 요소}` JSON을 받고, 서버 룰(TRACE 완성도 체크리스트)이 종료를 판단하며, 종료 시 Card를 1회 생성한다.
+- Failure: 응답은 항상 스키마로 검증한다. 실패하면 같은 Provider로 1회 재시도하고, 그다음 fallback으로 넘긴다. 응답한 Provider는 로그에만 남기고 화면에는 노출하지 않는다.
+- Budget: GPU 자원이 작다. 호출은 작고 직렬로 하며 병렬 호출은 하지 않는다. 인터뷰 턴은 누적 TRACE 상태 요약 + 직전 답변 + 남은 Gap 1~2개만, Card 생성은 TRACE 상태 요약 + Evidence 발췌만, 후임자 호출은 Card 요약 필드만 보낸다. 타임아웃과 출력 토큰 상한을 둔다. 목표는 인터뷰 1건 4~6회, 후임자 상담 1건 2회다.
+- Parser: 응답 파서는 thought 블록이 있든 없든 견뎌야 한다(Gemma E4B는 thinking을 끄면 빈 thought 블록이 생기지 않는다).
+- Data: 외부 클라우드 fallback에는 합성 데이터만 보낸다.
 
 ## Build
 
