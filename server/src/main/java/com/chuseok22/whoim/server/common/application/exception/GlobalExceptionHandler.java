@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
     return toResponse(ErrorResponse.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE), ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
-  // 인증·인가 예외는 캐치올이 500으로 삼키지 않도록 그대로 던져 Security가 처리하게 한다(#2에서 401/403 ErrorResponse 처리로 교체)
+  // 인증·인가 예외는 캐치올이 500으로 삼키지 않도록 그대로 던져 Security 필터 체인의 핸들러가 401/403 ErrorResponse로 처리하게 한다
   @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
   public void rethrowSecurityException(Exception e) throws Exception {
     throw e;

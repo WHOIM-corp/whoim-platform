@@ -40,7 +40,7 @@ JPA 엔티티, 스키마(Flyway), Repository 규칙이다. 패키지 위치는 `
 - Immutable: 적용된 파일은 수정하지 않는다. 변경은 새 파일로 추가하고 이슈별로 증분 마이그레이션을 쓴다.
 - Types: `UUID`, `TEXT`, `TIMESTAMPTZ`, `CHECK`를 쓴다.
 - Author: 마이그레이션 파일은 에이전트가 작성한다. DB 초기화·drop·truncate·볼륨 삭제는 하지 않는다(필요하면 원인과 절차만 안내).
-- Dependencies: Flyway는 `spring-boot-flyway`, `flyway-core`, `flyway-database-postgresql`(사전 승인, 도입은 해당 이슈에서).
+- Dependencies: `spring-boot-starter-flyway` + `flyway-database-postgresql`(버전은 Boot BOM이 관리, 이슈 #2에서 도입).
 
 ### member 테이블 제약
 
@@ -58,5 +58,7 @@ JPA 엔티티, 스키마(Flyway), Repository 규칙이다. 패키지 위치는 `
 
 ## 현재 코드 상태
 
-- 엔티티·Repository·`BaseEntity`·마이그레이션은 아직 없다(이슈 #1에서 추가). `build.gradle`에 Flyway 의존성도 아직 없다.
-- 검증 필요: Hibernate 7 `validate`와 `TEXT`+`CHECK`/`TIMESTAMPTZ`/`UUID` 조합, Flyway 좌표의 Boot 4.1.1 해석.
+- 이슈 #2에서 추가: `Member`(`member.infrastructure.entity`, 필드 `id`, `username`(unique), `password`, `name`, `role`, `position`), `MemberRepository`(`findByUsername`, `existsByUsername`), `BaseEntity`(`createdAt`/`updatedAt` `Instant`), `JpaAuditingConfig`(`Clock` 기반 `DateTimeProvider`), 마이그레이션 `V20261015_230147__create_member.sql`.
+- `Member`는 role-position 조합을 검증하지 않는다. 조합은 `MemberSeedValidator`와 DB `CHECK`가 막는다.
+- 마이그레이션은 컬럼 `UUID`/`TEXT`/`TIMESTAMPTZ`, `role`·`position`·조합 `CHECK` 3개, `username` UNIQUE를 정의한다. 다른 엔티티·Repository·마이그레이션은 아직 없다.
+- 검증 필요(미검증): 실제 DB 실행 전이라 Hibernate 7 `validate`와 `TEXT`+`CHECK`/`TIMESTAMPTZ`/`UUID` 조합, Flyway 마이그레이션 적용은 확인하지 못했다. Flyway 좌표는 `./gradlew compileJava`가 통과하는 것(의존성 해석)까지만 확인했다.

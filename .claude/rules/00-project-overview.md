@@ -28,7 +28,7 @@
 
 - Monorepo: `server/`, `web/`, `.github/`(워크플로우), 루트 `version.yml`
 - server: Spring Boot 4.1.1, Java 21, Gradle(Groovy), JPA + PostgreSQL, Spring Security, Actuator. 루트 패키지 `com.chuseok22.whoim.server`. Thymeleaf starter와 `thymeleaf-extras-springsecurity6`도 의존성에 포함(용도 미정).
-- server libraries: Lombok, starter-validation, springdoc(Swagger 3.1.1)은 이슈 #3에서 도입했다. jjwt, Flyway, 로깅 라이브러리(`com.chuseok22:logging`)는 사전 승인 목록이며 각 이슈에서 도입하므로 `server/build.gradle`에 있는 것만 현재 의존성이다.
+- server libraries: Lombok, starter-validation, springdoc(Swagger 3.1.1)은 이슈 #3에서, jjwt(0.13.0), Flyway(`spring-boot-starter-flyway`, `flyway-database-postgresql`), 로깅 라이브러리(`com.chuseok22:logging:0.0.9`, 개인 Nexus 저장소)는 이슈 #2에서 도입했다. `server/build.gradle`에 있는 것만 현재 의존성이다.
 - web: React 19.2, Vite 8, TypeScript ~6.0, npm. CI는 Node 22.
 - Deploy: Docker(Docker Hub) + SSH 서버(Synology 추정). API `https://api.whoim.chuseok22.com`, web `https://www.whoim.chuseok22.com` (도메인은 사용자 확인).
 
@@ -51,7 +51,7 @@
 - Order: ① 모델·인증 골격 → ② 인터뷰·Card 생성·전임자 리뷰 → ③ 승인자 페이지 → ④ 후임자 Decision Support → ⑤ Evidence·Gap Detection → ⑥ DLP·Hard Rule 보강
 - Quality: 승인자 핵심은 정상·예외·상태 오류까지 완성도를 높이고, 보조 기능은 단순하게 만든다.
 - Data: 합성 데이터만 쓴다. 실제 회사·인물·내부 정보를 코드, 테스트, 스크린샷에 넣지 않는다. 합성 데이터와 시연 대본은 Claude가 초안을 쓰고 사용자가 검수한다.
-- Accounts: 회원가입 없음. 시연 계정 4개(전임자, 후임자, 승인자, 관리자)를 `application-*.yml`의 `seed.members`로 서버 기동 시 생성한다(role `USER`/`ADMIN`, position `PREDECESSOR`/`SUCCESSOR`/`REVIEWER`, 상세는 `50-server-auth-security.md`). 나머지 데이터는 앱 기능(UI/API)으로 입력하고, Gap은 Gap Detection 구현 전까지 API로 등록한다. 시연 직전 DB 복구는 사용자가 한다.
+- Accounts: 회원가입 없음. 시연 계정 4개(전임자, 후임자, 승인자, 관리자)를 `application-*.yml`의 `seed.members`(`username`, `password`, `name`, `role`, `position`)로 서버 기동 시 생성한다(role `USER`/`ADMIN`, position `PREDECESSOR`/`SUCCESSOR`/`REVIEWER`, 로그인 식별자는 `username`, 값은 yml에만 둔다). JWT는 같은 yml의 `jwt.secret-key`(64바이트 이상), `jwt.access-exp-millis`, `jwt.issuer`로 설정한다. 상세는 `50-server-auth-security.md`. 나머지 데이터는 앱 기능(UI/API)으로 입력하고, Gap은 Gap Detection 구현 전까지 API로 등록한다. 시연 직전 DB 복구는 사용자가 한다.
 
 ## Still open
 

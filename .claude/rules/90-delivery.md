@@ -31,7 +31,7 @@
 - Ignore: 루트 `.gitignore`가 `.env.*`, `application-*.yml`, `.idea`, `docs`, `.docs`, `issue`, `report`, `.issue`, `.report`, `web/web.iml`을 무시한다. 패키지·디렉터리 이름에 `docs`, `issue`, `report`를 쓰지 않는다.
 - Read: `application-*.yml`과 `web/.env.*`는 읽을 수 있으나 키 이름만 확인하고 값은 출력하지 않는다(예: `grep -oE '^[A-Z_]+' web/.env.local`). 값이 필요하면 사용자에게 묻는다.
 - Edit: 수정은 사용자 승인 후에만 한다. 서버 설정값을 추가할 때는 키 이름과 위치를 알려 주고 값은 사용자가 채운다.
-- Keys: 서버 yml 키는 `seed.members`(email, password, name, role, position 목록)와 `jwt.secret-key`, `jwt.access-exp-millis`, `jwt.issuer`(이슈 #2에서 도입)이고, LLM 키는 `60-server-llm.md`를 따른다. 값은 문서·코드에 쓰지 않는다.
+- Keys: 서버 yml 키는 `seed.members`(username, password, name, role, position 목록)와 `jwt.secret-key`, `jwt.access-exp-millis`, `jwt.issuer`(이슈 #2에서 도입)이고, LLM 키는 `60-server-llm.md`를 따른다. 값은 문서·코드에 쓰지 않는다.
 - Examples: `.env.example` 등 example/템플릿 파일은 만들지 않는다.
 - `.idea/`: DB 데이터소스 메타데이터가 있으므로 읽거나 수정하지 않는다.
 - Exposure: 값을 커밋, 로그, PR, 대화에 노출하지 않는다. 노출됐다면 즉시 알리고 폐기(rotate)를 안내한다.
@@ -75,4 +75,5 @@
 - Protected: `.github/scripts/*`, `.github/.wizard/baseline.json`, `version.yml`은 수정하지 않는다.
 - Mismatch: `version.yml`의 `deploy.react.PROJECT_NAME`은 `whoim-server`로 남아 있으나 실제 워크플로우 값은 `whoim-web`이다. wizard 재실행 시 `deploy:` 블록이 재생성된다. 바꾸려면 사용자에게 먼저 확인한다.
 - Edit scope: 워크플로우는 사용자가 요청한 범위만 고친다. 바꿀 때는 path 필터, env 이름, 시크릿 이름을 함께 확인한다.
+- Caveat: 로깅 의존성(`com.chuseok22:logging`)이 개인 Nexus(`nexus.chuseok22.com`)에서 해석되므로 CI/CD 빌드가 Nexus 가용성에 종속된다. 장애 시 롤백은 `server/build.gradle`의 로깅 의존성·저장소 제거와 `@LogMonitoring` 삭제다.
 - CI ≠ tests: CI는 서버 테스트를 실행하지 않는다. 통과가 테스트 통과를 뜻하지 않는다(`80-testing.md`).

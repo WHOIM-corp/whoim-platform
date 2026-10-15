@@ -77,5 +77,10 @@ com.chuseok22.whoim.server.{domain}
 
 ## Current code state
 
-- Present: 서버 코드는 `ServerApplication`, `config/SecurityConfig`, `auth.infrastructure.config.SecurityPaths`, 그리고 `common`(`application.exception`의 `ErrorCode`·`CustomException`·`ErrorResponse`·`GlobalExceptionHandler`, `application.time.SeoulTime`, `infrastructure.config`의 `ClockConfig`·`OpenApiConfig`)이다. 엔티티·`BaseEntity`·도메인 패키지는 아직 없다.
-- Target: 위 구조는 규약이다. 새 코드는 이 구조로 만들고, 기존 `config/SecurityConfig`의 이동은 인증 이슈에서 한다.
+- Present(이슈 #2까지): `ServerApplication`과 아래 세 도메인 패키지다.
+  - `common`: `application.exception`(`ErrorCode`, `CustomException`, `ErrorResponse`, `GlobalExceptionHandler`), `application.time.SeoulTime`, `infrastructure.config`(`ClockConfig`, `OpenApiConfig`, `JpaAuditingConfig`), `infrastructure.persistence.BaseEntity`.
+  - `member`: `core.constant`(`Role`, `Position`), `application`(`dto.response.MemberResponse`, `service.MemberSeedValidator`), `infrastructure`(`entity.Member`, `repository.MemberRepository`, `properties.SeedProperties`, `config.MemberSeedRunner`).
+  - `auth`: `application`(`controller.AuthController`·`AuthControllerDocs`, `dto.request.LoginRequest`, `dto.response.LoginResponse`, `dto.data.AuthenticatedMember`, `service.LoginService`), `infrastructure.properties.JwtProperties`, `infrastructure.config`.
+- Security classes: `SecurityConfig`, `JwtProvider`, `JwtAuthenticationFilter`, `JwtAuthenticationEntryPoint`, `JwtAccessDeniedHandler`, `CorsOrigins`, `SecurityPaths`는 모두 `auth.infrastructure.config`에 있다(`jwt`·`handler` 하위 패키지 없음). `SecurityConfig`는 이슈 #2에서 옛 `config/SecurityConfig`에서 이곳으로 옮겼고 `config/` 패키지는 없어졌다.
+- Not yet: handover, card, interview, evidence, gap, consultation, llm 패키지는 아직 없다.
+- Target: 위 구조는 규약이다. 새 코드는 이 구조로 만든다.

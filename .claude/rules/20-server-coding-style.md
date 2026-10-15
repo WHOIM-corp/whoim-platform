@@ -25,10 +25,10 @@ paths:
 - Validation: 검증 어노테이션의 `message`는 한국어로 쓴다. 첫 오류 메시지가 그대로 응답된다.
 
 ```java
-public record MemberResponse(UUID id, String email) {
+public record MemberResponse(UUID memberId, String username) {
 
   public static MemberResponse from(Member member) {
-    return new MemberResponse(member.getId(), member.getEmail());
+    return new MemberResponse(member.getId(), member.getUsername());
   }
 }
 ```
@@ -57,11 +57,15 @@ public record MemberResponse(UUID id, String email) {
 ## Logging
 
 - Logger: `@Slf4j`를 쓴다.
-- Monitoring: Controller 메서드 전체에 `@LogMonitoring`을 적용한다(`com.chuseok22:logging`, 개인 Nexus에서 읽기 공개라 CI 인증이 필요 없다).
-- Sensitive: 민감정보 로깅에 제한을 두지 않는다(사용자 결정). 단 secret 설정값은 로그와 문서에 남기지 않는다.
+- Monitoring: Controller 메서드 전체에 `@LogMonitoring`을 적용한다(`com.chuseok22:logging`, 개인 Nexus에서 읽기 공개라 CI 인증이 필요 없다). 현재 `AuthController.login`에만 적용되어 있다(컨트롤러가 이것뿐).
+- Sensitive: 민감정보 로깅에 제한을 두지 않는다(사용자 결정, 로그인 비밀번호·토큰 포함). 단 secret 설정값은 로그와 문서에 남기지 않는다.
 - Level: 예상된 4xx는 WARN, 예상 못 한 예외는 ERROR와 스택이다(`40-server-api-and-error.md`).
 - Forbidden: `System.out`, `printStackTrace`를 쓰지 않는다.
 
-## Verification needed
+## Logging library (이슈 #2 확인 결과)
 
-- 로깅 라이브러리: `com.chuseok22:logging:0.0.9`의 Boot 4 호환과 AOP 동작은 도입 이슈에서 확인한다.
+- Dependency: `com.chuseok22:logging:0.0.9`. 개인 Nexus 저장소(`https://nexus.chuseok22.com/repository/maven-releases/`)를 `server/build.gradle`의 `repositories`에 추가했다.
+- Boot 4: 컴파일과 의존성 해석은 확인했다. 실제 로그 출력(AOP 동작)은 실기동 전이라 미검증이다.
+- Transitive: 라이브러리 메타데이터는 `spring-boot-starter-web`·`aop` 3.5.7을 요구하지만 dependency-management 플러그인이 Boot 4.1.1 BOM으로 덮어써 4.1.1로 해석된다(캐시의 `spring-boot-starter-web/4.1.1` 확인).
+- Jackson 2: 로깅 라이브러리가 내부에서 Jackson 2(`com.fasterxml`)를 쓰는데 이는 `jjwt-jackson` 전이 의존성에 기대고 있다. `jjwt-jackson`을 제거하면 `@LogMonitoring` 호출 시 `NoClassDefFoundError`가 날 수 있다.
+- Sensitive keys: 마스킹은 쓰지 않는다(사용자 결정). 로그인 요청의 비밀번호와 응답의 토큰, `Authorization` 헤더가 `@LogMonitoring` 로그에 평문으로 남는다는 것을 알고 둔 상태다(라이브러리 기본값은 요청·응답 본문과 헤더를 로깅하고 `chuseok22.logging.sensitive-keys`가 비어 있다). 로그 접근 범위에 주의한다.
