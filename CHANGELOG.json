@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-10T08:28:42Z",
-    "currentVersion": "0.1.0",
+    "lastUpdated": "2026-10-15T08:50:54Z",
+    "currentVersion": "0.1.1",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 1
+    "totalReleases": 2
   },
   "releases": [
+    {
+      "version": "0.1.1",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-15",
+      "pr_number": null,
+      "raw_summary": "### 📝 문서\n- 확정된 구현 범위와 인증·LLM 규칙 반영\n\n### 🔧 변경사항\n- 서버 공통 설정(application.yml) 추가\n- 도구 작업 폴더를 gitignore에 추가",
+      "parsed_changes": {
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "확정된 구현 범위와 인증·LLM 규칙 반영"
+          ]
+        },
+        "changes": {
+          "title": "🔧 변경사항",
+          "items": [
+            "서버 공통 설정(application.yml) 추가",
+            "도구 작업 폴더를 gitignore에 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.1.0",
       "project_types": [
