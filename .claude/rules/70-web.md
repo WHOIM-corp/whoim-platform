@@ -16,6 +16,14 @@ paths:
 - Policy override: `src/features/<name>/{components,hooks,api,...}` feature 단위로 구성하고 공용 코드는 `src/shared`에 둔다(전역 web/coding-style의 `src/components` 타입별 구성을 따르지 않는다).
 - Current: `src/`에는 Vite 템플릿(`App.tsx`, `main.tsx`, `index.css`, `App.css`, `assets/`)만 있다.
 
+## Screens and accounts
+
+- Position-based: 메뉴와 화면은 로그인한 계정의 `position`(전임자 `PREDECESSOR`, 승인자 `REVIEWER`, 후임자 `SUCCESSOR`)으로 나눈다. 권한 모델은 `50-server-auth-security.md`를 따른다.
+- Naming: Card 검수(Approve, Request Revision, Reject, Publish)와 Package 진행률 화면은 승인자 화면이다. 관리자(`role=ADMIN`)는 아직 기능이 없어 전용 화면을 만들지 않는다.
+- Demo accounts: 시연용 4계정(전임자, 후임자, 승인자, 관리자) 빠른 전환 UI는 웹 이슈에서 구현한다. 계정 값은 코드·문서에 쓰지 않는다.
+- Errors: 서버 에러 응답은 `{ errorCode, errorMessage }` 두 필드다. 화면에는 `errorMessage`를 쓰고 분기는 `errorCode`로 한다(`40-server-api-and-error.md`).
+- API docs: 서버 Swagger는 `/docs/swagger`에서 확인한다.
+
 ## TypeScript and style
 
 - TS 6에서 `strict`는 기본 적용이며 tsconfig에 키가 없어도 켜져 있다. `strict: false`로 끄거나 `any`로 우회하지 않는다.
@@ -27,7 +35,7 @@ paths:
 
 - 파일: `web/.env.local`(로컬), `web/.env.production`(배포, CI가 `ENV_FILE` 시크릿으로 주입). 둘 다 gitignore.
 - `VITE_*` 변수는 번들에 노출되므로 비밀값을 넣지 않는다. 현재 키는 `VITE_API_BASE_URL`이다.
-- 상세와 열람 규칙은 `50-secrets-and-env.md`를 따른다.
+- 상세와 열람 규칙은 `90-delivery.md`를 따른다.
 
 ## UI process
 

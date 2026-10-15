@@ -7,13 +7,17 @@
 
 ## What to test
 
-- 대상: 핵심 도메인 로직만 필요할 때 테스트를 작성한다.
-- Coverage: 커버리지 게이트를 두지 않는다.
+- 대상: 필요한 경우에만 쓴다. 커버리지 게이트는 없다.
+- Server unit: 복잡한 상태 변경(Card/Package 상태 전이, TRACE 완성도 판단 등)만 단위 테스트한다(mock 또는 순수 단위).
+- Server common: 공통 로직(예외 처리기, 시각 변환·직렬화)은 작은 테스트를 둔다.
+- Server slice: 예외 처리기·직렬화는 `@WebMvcTest(controllers = …)` + `@AutoConfigureMockMvc(addFilters = false)` + `@ActiveProfiles("test")` 슬라이스(DB 불필요) 또는 `MockMvcBuilders.standaloneSetup`을 쓴다. 기본 프로필이 `prod`이므로 `@ActiveProfiles("test")`를 빼지 않는다.
+- Not used: 통합 테스트, Testcontainers, H2는 쓰지 않는다. DB가 필요한 `@SpringBootTest`는 새로 만들지 않는다.
 - TDD: 사용자가 요청한 경우에만 TDD(RED → GREEN → REFACTOR)로 진행한다.
 
 ## Current state
 
-- Server: 테스트는 `ServerApplicationTests#contextLoads` 하나(`@SpringBootTest`)이며 datasource가 필요하다. `application-dev.yml`이 비어 있거나 dev 프로필 없이 실행하면 실패한다.
+- Server: `ServerApplicationTests#contextLoads`(`@SpringBootTest`)는 datasource가 필요하다. dev 프로필(`SPRING_PROFILES_ACTIVE=dev`)과 사용자가 관리하는 `application-dev.yml` 없이는 실패한다.
+- Server common tests: `SeoulTimeTest`, `GlobalExceptionHandlerTest`(`@WebMvcTest` 슬라이스, DB 불필요)가 있다. 서버 코드가 늘면 이 목록을 갱신한다.
 - Web: `test` 스크립트와 vitest가 없다. `package.json`의 scripts는 `dev`, `build`, `lint`, `preview`이다.
 
 ## CI does not prove tests pass
@@ -24,13 +28,13 @@
 
 ## Adding tests
 
-- Server: JUnit Platform(`useJUnitPlatform()`)과 Boot 4의 분할 test starter(`starter-data-jpa-test`, `starter-webmvc-test` 등)를 쓴다. Testcontainers·H2 등 새 의존성은 사용자 확인 후 추가한다.
+- Server: JUnit Platform(`useJUnitPlatform()`)과 Boot 4의 분할 test starter(`starter-webmvc-test` 등)를 쓴다. 새 테스트 의존성은 사용자 확인 후 추가한다.
 - Web: vitest를 도입하면 `test` 스크립트는 watch 없는 `vitest run`으로 둔다(CI가 그대로 실행하고, 실패 시 build가 막힌다).
 - 실패 시 구현을 고친다. 테스트가 틀린 경우에만 테스트를 바꾼다.
 
 ## Commands
 
-- Server: `cd server && SPRING_PROFILES_ACTIVE=dev ./gradlew test` (dev yml 채운 뒤), 빌드는 `./gradlew clean build -x test`
+- Server: `cd server && ./gradlew test --tests '<클래스>'`(DB가 필요한 테스트는 `SPRING_PROFILES_ACTIVE=dev` 필요), 빌드는 `./gradlew clean build -x test`
 - Web: `cd web && npm run lint && npm run build`
 
 ## Evidence
