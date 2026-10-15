@@ -2,13 +2,16 @@
 
 이 파일은 진입점이며, 상세 규칙은 `.claude/rules/*.md`에 있습니다. 작업 시작 전 반드시 아래 파일들을 읽고 이해한 뒤 진행하세요.
 
-- `.claude/rules/00-project-overview.md`: 서비스 요약, 용어집, 일정, 스택, 주요 명령, 확정 구현 범위, 미정 항목
-- `.claude/rules/10-server.md`: 서버 패키지 구조, DTO·에러·시간·DB·설정·인증·LLM 규칙
-- `.claude/rules/20-web.md`: 웹 스택, 구조, 스타일, UI 작업 프로세스(mock 합의 선행)
-- `.claude/rules/30-testing.md`: 테스트 정책 (전역 TDD·80% 규칙을 대체)
-- `.claude/rules/40-git-and-delivery.md`: 커밋·push 권한, main push = 배포·릴리즈, 릴리즈 봇
-- `.claude/rules/50-secrets-and-env.md`: 비밀 파일 취급, GitHub Secrets 목록
-- `.claude/rules/60-ci-cd.md`: 설치된 워크플로우, Dockerfile, wizard 규칙
+- `00-project-overview.md`: 서비스 요약, 용어집, 일정, 스택, 주요 명령, 확정 구현 범위, 미정 항목
+- `10-server-architecture.md`: 단일 모듈 DDD, 도메인 표, 패키지 구조, 의존 규칙
+- `20-server-coding-style.md`: 스타일, DTO, Lombok, 서비스·트랜잭션, 시각, 로깅
+- `30-server-persistence.md`: 엔티티, enum, 상태 전이, Flyway, Repository
+- `40-server-api-and-error.md`: API 규약, 에러 처리, Swagger
+- `50-server-auth-security.md`: 계정·role·position, JWT, 권한, 보안 설정, yml 취급
+- `60-server-llm.md`: LLM Provider, 라우팅, 호출 예산, 실패 처리
+- `70-web.md`: 웹 스택, 구조, 스타일, UI 작업 프로세스(mock 합의 선행)
+- `80-testing.md`: 테스트 정책 (전역 TDD·80% 규칙을 대체)
+- `90-delivery.md`: 커밋·push 권한, main push = 배포·릴리즈, 비밀·환경 파일, CI/CD, wizard 규칙
 
 ## 핵심 요약 (전체 내용은 위 rules 파일 참고)
 
@@ -25,4 +28,7 @@
   - DB 초기화·drop·truncate·볼륨 삭제 (필요하면 원인과 절차만 안내)
   - project-auto-wizard 재실행, `.github/scripts/*`·`.github/.wizard/baseline.json`·`version.yml` 수정
   - `[skip ci]` 커밋 메시지, `v*` 태그 push, `gh workflow run`, `gh release create`, 서버 직접 배포
+  - 패키지·디렉터리명 `docs`/`issue`/`report` (`.gitignore`에 걸려 소스가 추적에서 빠짐)
+  - `@Data`, `@OneToMany`, JPA cascade, 이미 적용된 Flyway 파일 수정
+  - `ADMIN`에 업무 권한 자동 부여
   - 요청 범위 밖 수정
