@@ -9,3 +9,5 @@ docs
 issue
 report
 web/web.iml
+.playwright-mcp
+.superpowers
