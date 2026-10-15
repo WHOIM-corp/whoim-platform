@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-15T09:46:27Z",
-    "currentVersion": "0.2.0",
+    "lastUpdated": "2026-10-15T09:51:08Z",
+    "currentVersion": "0.2.1",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 3
+    "totalReleases": 4
   },
   "releases": [
+    {
+      "version": "0.2.1",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-15",
+      "pr_number": null,
+      "raw_summary": "### 🔧 변경사항\n- 라벨 동기화 워크플로우 추가",
+      "parsed_changes": {
+        "changes": {
+          "title": "🔧 변경사항",
+          "items": [
+            "라벨 동기화 워크플로우 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.2.0",
       "project_types": [
