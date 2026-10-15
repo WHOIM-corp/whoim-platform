@@ -1,14 +1,48 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-15T08:50:54Z",
-    "currentVersion": "0.1.1",
+    "lastUpdated": "2026-10-15T09:46:27Z",
+    "currentVersion": "0.2.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 2
+    "totalReleases": 3
   },
   "releases": [
+    {
+      "version": "0.2.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-15",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- 공통_API_골격과_에러_시각_처리 — Swagger 문서 노출 설정 추가\n- 공통_API_골격과_에러_시각_처리 — 전역 예외 처리 추가\n- 공통_API_골격과_에러_시각_처리 — 서울 시간대 시각 처리 추가\n\n### 📝 문서\n- 서버 규칙 개정\n\n### 🔧 변경사항\n- GitHub 템플릿과 라벨 설정 추가\n- 서버 의존성 추가(Lombok, validation, springdoc)",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "공통_API_골격과_에러_시각_처리 — Swagger 문서 노출 설정 추가",
+            "공통_API_골격과_에러_시각_처리 — 전역 예외 처리 추가",
+            "공통_API_골격과_에러_시각_처리 — 서울 시간대 시각 처리 추가"
+          ]
+        },
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "서버 규칙 개정"
+          ]
+        },
+        "changes": {
+          "title": "🔧 변경사항",
+          "items": [
+            "GitHub 템플릿과 라벨 설정 추가",
+            "서버 의존성 추가(Lombok, validation, springdoc)"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.1.1",
       "project_types": [
