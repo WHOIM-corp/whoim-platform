@@ -49,7 +49,7 @@ URL, Controller, 응답, 에러 처리, Swagger 규칙이다. 인증·권한은 
 | 그 외 `Exception` | 500 `INTERNAL_SERVER_ERROR`, 내부 정보 비노출 |
 
 - 추가: `ResponseStatusException`, 406 `HttpMediaTypeNotAcceptableException`, 413 `MaxUploadSizeExceededException` 등 표준 예외는 필요한 이슈에서 매핑을 추가한다.
-- Security: `AccessDeniedException`/`AuthenticationException`은 캐치올이 삼키지 않는다. 401/403 `ErrorResponse`는 `50-server-auth-security.md`의 처리기가 맡는다.
+- Security: `AccessDeniedException`/`AuthenticationException`은 캐치올이 삼키지 않는다. 401/403 `ErrorResponse`는 `50-server-auth-security.md`의 Security 처리기가 맡는다(구현됨).
 - Order: 처리기는 하나뿐이라 `@Order`가 필요 없다. 다른 advice를 추가하면 `@Order(HIGHEST_PRECEDENCE)`와 캐치올 순서를 확인한다.
 - Log: 예상된 `CustomException` 4xx는 WARN(스택 없음), 5xx와 예상 못 한 예외는 ERROR + 스택(원인은 서버 로그에만).
 
@@ -63,5 +63,8 @@ URL, Controller, 응답, 에러 처리, Swagger 규칙이다. 인증·권한은 
 
 ## 현재 코드 상태
 
-- 구현됨(이슈 #3): `ErrorCode`, `CustomException`, `ErrorResponse`, `GlobalExceptionHandler`, `OpenApiConfig`. 컨트롤러는 아직 없다.
-- 이슈 #2 전까지 `GlobalExceptionHandler`는 `AccessDeniedException`·`AuthenticationException`을 그대로 다시 던져 Security 필터 체인에 맡긴다. 인증되지 않은 요청의 없는 경로는 Security가 먼저 거부한다(API 요청은 401, 브라우저 `text/html` 요청은 `/login`으로 302). 그래서 404 `ErrorResponse`는 인증된 요청에서만 나온다.
+- 구현됨(이슈 #3): `ErrorCode`, `CustomException`, `ErrorResponse`, `GlobalExceptionHandler`, `OpenApiConfig`.
+- 구현됨(이슈 #2): `AuthController`(`POST /api/auth/login`)와 `AuthControllerDocs`가 유일한 컨트롤러다. 요청 `{ "username", "password" }`(둘 다 `@NotBlank`), 응답 `{ "accessToken", "member": { "memberId", "username", "name", "role", "position" } }`이며 `position`은 ADMIN이면 `null`이다. 실패는 아이디 없음과 비밀번호 불일치 모두 401 `INVALID_CREDENTIALS`다. Swagger에서 이 엔드포인트는 빈 `@SecurityRequirements`로 전역 bearerAuth 요구를 해제했다.
+- 인증 `ErrorCode` 4개(`UNAUTHENTICATED`, `EXPIRED_TOKEN`, `INVALID_CREDENTIALS`, `ACCESS_DENIED`)가 `ErrorCode`에 구현되어 있다.
+- 401/403은 `GlobalExceptionHandler`가 아니라 Security의 `JwtAuthenticationEntryPoint`/`JwtAccessDeniedHandler`가 `ErrorResponse`로 응답한다. `GlobalExceptionHandler`는 `AccessDeniedException`·`AuthenticationException`을 그대로 다시 던져 Security 체인에 맡긴다(`@PreAuthorize` 거부도 이 경로로 403이 된다).
+- 인증 없는 요청은 없는 경로를 포함해 모두 401이다(formLogin을 끄고 `anyRequest().authenticated()`라서 `/login` 302는 없다). 그래서 404 `ErrorResponse`는 인증된 요청에서만 나온다.

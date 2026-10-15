@@ -17,7 +17,8 @@
 ## Current state
 
 - Server: `ServerApplicationTests#contextLoads`(`@SpringBootTest`)는 datasource가 필요하다. dev 프로필(`SPRING_PROFILES_ACTIVE=dev`)과 사용자가 관리하는 `application-dev.yml` 없이는 실패한다.
-- Server common tests: `SeoulTimeTest`, `GlobalExceptionHandlerTest`(`@WebMvcTest` 슬라이스, DB 불필요)가 있다. 서버 코드가 늘면 이 목록을 갱신한다.
+- Server tests(DB 불필요): `SeoulTimeTest`, `GlobalExceptionHandlerTest`(`@WebMvcTest` 슬라이스), `AuthSecurityTest`(`@WebMvcTest` 보안·로그인 슬라이스, 필터 적용·고정 `Clock`·`MemberRepository` mock), `JwtProviderTest`, `JwtPropertiesTest`(64바이트 키 검증), `MemberSeedValidatorTest`, `MemberSeedRunnerTest`(순수 Mockito)가 있다. 서버 코드가 늘면 이 목록을 갱신한다.
+- Security slice: 보안 슬라이스는 `jwt.secret-key`를 64바이트 이상 더미 값으로 `@TestPropertySource`에 지정한다(`JwtProperties` 검증 때문). `/actuator/health`는 슬라이스에서 401/403이 아님(공개)만 확인하며 200은 실기동에서 확인한다. 위 테스트 클래스 7개를 로컬에서 `./gradlew test --tests ...`로 실행해 55건 통과(실패 0, 에러 0, 스킵 0)를 확인했다(2026-10-15).
 - Web: `test` 스크립트와 vitest가 없다. `package.json`의 scripts는 `dev`, `build`, `lint`, `preview`이다.
 
 ## CI does not prove tests pass
