@@ -1,0 +1,58 @@
+package com.chuseok22.whoim.server.member.application.service;
+
+import com.chuseok22.whoim.server.member.core.constant.Role;
+import com.chuseok22.whoim.server.member.infrastructure.properties.SeedProperties.SeedMember;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+// 메시지에는 비밀번호가 새지 않도록 인덱스와 username만 담는다
+public final class MemberSeedValidator {
+
+  private MemberSeedValidator() {
+  }
+
+  public static void validate(List<SeedMember> members) {
+    Set<String> usernames = new HashSet<>();
+    for (int index = 0; index < members.size(); index++) {
+      SeedMember member = members.get(index);
+      if (member == null) {
+        throw invalid(index, null, "항목이 비어 있습니다");
+      }
+      if (isBlank(member.username())) {
+        throw invalid(index, null, "username이 비어 있습니다");
+      }
+      if (isBlank(member.password())) {
+        throw invalid(index, member.username(), "password가 비어 있습니다");
+      }
+      if (isBlank(member.name())) {
+        throw invalid(index, member.username(), "name이 비어 있습니다");
+      }
+      if (!usernames.add(member.username())) {
+        throw invalid(index, member.username(), "username이 중복되었습니다");
+      }
+      validateRoleAndPosition(index, member);
+    }
+  }
+
+  private static void validateRoleAndPosition(int index, SeedMember member) {
+    if (member.role() == null) {
+      throw invalid(index, member.username(), "role이 비어 있습니다");
+    }
+    if (member.role() == Role.ADMIN && member.position() != null) {
+      throw invalid(index, member.username(), "ADMIN은 position을 가질 수 없습니다");
+    }
+    if (member.role() == Role.USER && member.position() == null) {
+      throw invalid(index, member.username(), "USER는 position이 필요합니다");
+    }
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.isBlank();
+  }
+
+  private static IllegalStateException invalid(int index, String username, String reason) {
+    String target = username == null ? "seed.members[" + index + "]" : "seed.members[" + index + "](" + username + ")";
+    return new IllegalStateException(target + ": " + reason);
+  }
+}
