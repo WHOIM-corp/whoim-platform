@@ -15,7 +15,8 @@ paths:
 
 ## DTO
 
-- Type: `record`를 쓴다. 상속이나 역직렬화 제약처럼 `record`가 어려울 때만 `class`를 허용한다.
+- Type: 기본은 `record`다. 상속이나 역직렬화 제약처럼 `record`가 어려울 때, 또는 Lombok을 쓰고 싶을 때는 `class`도 허용한다.
+- Lombok: DTO에도 Lombok을 쓸 수 있다(`@Builder`, `@Getter`, `@NoArgsConstructor`, `@AllArgsConstructor` 등). `@Data`는 DTO에서도 쓰지 않는다. 사용자 결정(2026-10-16).
 - File: 파일 하나에 DTO 하나를 둔다.
 - Location: 요청은 `application.dto.request`, 응답은 `application.dto.response`, 내부 전달용은 `application.dto.data`다.
 - Name: `XRequest`, `XResponse`. `dto.data`는 이 이름 규칙을 따르지 않는다.
@@ -36,7 +37,7 @@ public record MemberResponse(UUID memberId, String username) {
 ## Lombok
 
 - Forbidden: `@Data`는 쓰지 않는다.
-- Allowed: `@Getter`, `@Setter`, `@Slf4j`, `@RequiredArgsConstructor`.
+- Allowed: `@Getter`, `@Setter`, `@Slf4j`, `@RequiredArgsConstructor`. DTO에는 `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`도 허용한다(`## DTO` 참고).
 - Injection: 생성자 주입은 `@RequiredArgsConstructor`로 한다. 필드 주입은 쓰지 않는다.
 - Entity: `@NoArgsConstructor(access = PROTECTED)`와, 상태·ID를 받지 않는 private 생성자에 붙인 `@Builder`로 만든다(상세는 `30-server-persistence.md`).
 
