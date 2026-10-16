@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // ResponseEntityExceptionHandler를 상속하면 ProblemDetail 본문이 나가므로 ErrorResponse로 통일하려고 직접 매핑한다
@@ -66,10 +68,17 @@ public class GlobalExceptionHandler {
     return invalidRequest(message);
   }
 
-  @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+  @ExceptionHandler({MissingServletRequestParameterException.class, MissingServletRequestPartException.class,
+      MethodArgumentTypeMismatchException.class})
   public ResponseEntity<ErrorResponse> handleInvalidParameter(Exception e) {
     log.warn("요청 파라미터 오류: {}", e.getMessage());
     return toResponse(ErrorResponse.of(ErrorCode.INVALID_REQUEST), ErrorCode.INVALID_REQUEST);
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+    log.warn("업로드 크기 초과: {}", e.getMessage());
+    return toResponse(ErrorResponse.of(ErrorCode.EVIDENCE_FILE_TOO_LARGE), ErrorCode.EVIDENCE_FILE_TOO_LARGE);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

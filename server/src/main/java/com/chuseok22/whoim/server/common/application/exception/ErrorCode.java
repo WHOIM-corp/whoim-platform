@@ -24,6 +24,13 @@ public enum ErrorCode {
   INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다"),
   ACCESS_DENIED(HttpStatus.FORBIDDEN, "접근 권한이 없습니다"),
 
+  // Evidence
+  EVIDENCE_FILE_EMPTY(HttpStatus.BAD_REQUEST, "빈 파일은 업로드할 수 없습니다"),
+  EVIDENCE_EXTENSION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "md 또는 txt 파일만 업로드할 수 있습니다"),
+  EVIDENCE_NOT_UTF8(HttpStatus.BAD_REQUEST, "UTF-8 텍스트 파일만 업로드할 수 있습니다"),
+  EVIDENCE_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "파일 크기가 허용 범위를 초과했습니다"),
+  EVIDENCE_EXCERPT_RANGE_INVALID(HttpStatus.BAD_REQUEST, "발췌 범위가 올바르지 않습니다"),
+
   // LLM
   LLM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 응답을 가져올 수 없습니다");
 

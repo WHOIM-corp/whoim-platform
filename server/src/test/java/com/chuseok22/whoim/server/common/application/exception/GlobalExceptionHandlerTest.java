@@ -3,6 +3,7 @@ package com.chuseok22.whoim.server.common.application.exception;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,7 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartFile;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -96,6 +100,27 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.occurredAt").value("2026-10-13T10:00:00+09:00"));
   }
 
+  @Test
+  void missingMultipartPart_returns400InvalidRequest() throws Exception {
+    mockMvc.perform(multipart("/probe/upload"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"));
+  }
+
+  @Test
+  void maxUploadSizeExceeded_returns413() throws Exception {
+    mockMvc.perform(get("/probe/too-large"))
+        .andExpect(status().isContentTooLarge())
+        .andExpect(jsonPath("$.errorCode").value("EVIDENCE_FILE_TOO_LARGE"));
+  }
+
+  @Test
+  void customFileTooLarge_returns413() throws Exception {
+    mockMvc.perform(get("/probe/file-too-large"))
+        .andExpect(status().isContentTooLarge())
+        .andExpect(jsonPath("$.errorCode").value("EVIDENCE_FILE_TOO_LARGE"));
+  }
+
   record TimeResponse(OffsetDateTime occurredAt) {
   }
 
@@ -119,6 +144,20 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/probe/denied")
     void denied() {
       throw new AccessDeniedException("denied");
+    }
+
+    @PostMapping("/probe/upload")
+    void upload(@RequestParam("file") MultipartFile file) {
+    }
+
+    @GetMapping("/probe/too-large")
+    void tooLarge() {
+      throw new MaxUploadSizeExceededException(1L);
+    }
+
+    @GetMapping("/probe/file-too-large")
+    void fileTooLarge() {
+      throw new CustomException(ErrorCode.EVIDENCE_FILE_TOO_LARGE);
     }
 
     @GetMapping("/probe/time")
