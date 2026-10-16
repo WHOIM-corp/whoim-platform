@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-15T15:21:03Z",
-    "currentVersion": "0.3.1",
+    "lastUpdated": "2026-10-16T05:57:40Z",
+    "currentVersion": "0.4.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 6
+    "totalReleases": 7
   },
   "releases": [
+    {
+      "version": "0.4.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-16",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- 엔드포인트_명세와_SUH_AI_연동_정리 — SUH AI 어댑터 추가\n- 엔드포인트_명세와_SUH_AI_연동_정리 — LLM 범용 호출 계약과 LlmService 추가\n- 엔드포인트_명세와_SUH_AI_연동_정리 — setting_config 읽기 전용 도메인 추가\n\n### 📝 문서\n- SUH AI 연동과 setting_config 규칙 반영",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "엔드포인트_명세와_SUH_AI_연동_정리 — SUH AI 어댑터 추가",
+            "엔드포인트_명세와_SUH_AI_연동_정리 — LLM 범용 호출 계약과 LlmService 추가",
+            "엔드포인트_명세와_SUH_AI_연동_정리 — setting_config 읽기 전용 도메인 추가"
+          ]
+        },
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "SUH AI 연동과 setting_config 규칙 반영"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.3.1",
       "project_types": [
