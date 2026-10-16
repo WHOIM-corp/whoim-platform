@@ -32,6 +32,7 @@ paths:
 - Config: `JwtProperties`(`@ConfigurationProperties(prefix = "jwt")` record, `SecurityConfig`의 `@EnableConfigurationProperties`로 등록)로 주입한다. 키: `jwt.secret-key`, `jwt.access-exp-millis`, `jwt.issuer`. `refresh-exp-millis` 등 다른 키는 바인딩하지 않는다.
 - Key check: `jwt.secret-key`가 비었거나 UTF-8 64바이트 미만이면 `JwtProperties` 생성 시 `IllegalStateException`으로 기동이 실패한다(값은 메시지에 없음).
 - Login: `POST /api/auth/login` 응답은 `{ accessToken, member }`다(`40-server-api-and-error.md`). 로그인 서비스는 `LoginService`다.
+- LLM keys: `application-*.yml`의 `llm.suh-ai.base-url`, `llm.suh-ai.api-key`, `llm.suh-ai.model`도 같은 취급이다. 값은 문서·코드·로그에 쓰지 않고, 비어 있으면 기동이 실패한다(`60-server-llm.md`).
 - Delivery: `Authorization: Bearer` 헤더, 만료는 시연 중 끊기지 않게 넉넉히 둔다.
 
 ### 권한

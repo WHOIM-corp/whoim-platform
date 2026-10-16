@@ -31,7 +31,7 @@
 - Ignore: 루트 `.gitignore`가 `.env.*`, `application-*.yml`, `.idea`, `docs`, `.docs`, `issue`, `report`, `.issue`, `.report`, `web/web.iml`을 무시한다. 패키지·디렉터리 이름에 `docs`, `issue`, `report`를 쓰지 않는다.
 - Read: `application-*.yml`과 `web/.env.*`는 읽을 수 있으나 키 이름만 확인하고 값은 출력하지 않는다(예: `grep -oE '^[A-Z_]+' web/.env.local`). 값이 필요하면 사용자에게 묻는다.
 - Edit: 수정은 사용자 승인 후에만 한다. 서버 설정값을 추가할 때는 키 이름과 위치를 알려 주고 값은 사용자가 채운다.
-- Keys: 서버 yml 키는 `seed.members`(username, password, name, role, position 목록)와 `jwt.secret-key`, `jwt.access-exp-millis`, `jwt.issuer`(이슈 #2에서 도입)이고, LLM 키는 `60-server-llm.md`를 따른다. 값은 문서·코드에 쓰지 않는다.
+- Keys: 서버 yml 키는 `seed.members`(username, password, name, role, position 목록)와 `jwt.secret-key`, `jwt.access-exp-millis`, `jwt.issuer`(이슈 #2에서 도입)이고, LLM 키는 `llm.suh-ai.base-url`, `llm.suh-ai.api-key`, `llm.suh-ai.model`(이슈 #4, `60-server-llm.md`)이다. 값은 문서·코드에 쓰지 않는다.
 - Examples: `.env.example` 등 example/템플릿 파일은 만들지 않는다.
 - `.idea/`: DB 데이터소스 메타데이터가 있으므로 읽거나 수정하지 않는다.
 - Exposure: 값을 커밋, 로그, PR, 대화에 노출하지 않는다. 노출됐다면 즉시 알리고 폐기(rotate)를 안내한다.
@@ -49,6 +49,7 @@
 | `WORKFLOW_PAT` | 선택. 릴리즈 후 워크플로우 연쇄 실행 |
 | `AI_API_KEY` | 선택. 릴리즈·PR 요약용 (Variables: `AI_API_BASE_URL`, `AI_MODEL`) |
 
+- Caveat(LLM 키): `main`에 push하기 전에 GitHub Secret `APPLICATION_PROD_YML`에 `llm.suh-ai.*` 세 키가 있어야 한다. 하나라도 비면 `SuhAiProperties` 검증으로 앱 기동이 실패하고 CD 헬스체크(`/actuator/health`)에서 뒤늦게 실패한다.
 - Firebase: `firebase-adminsdk.json` 주입 단계는 서버 워크플로우에 주석 처리되어 있다. 필요할 때만 해제한다.
 
 ## CI and CD

@@ -28,7 +28,7 @@
 
 - Monorepo: `server/`, `web/`, `.github/`(워크플로우), 루트 `version.yml`
 - server: Spring Boot 4.1.1, Java 21, Gradle(Groovy), JPA + PostgreSQL, Spring Security, Actuator. 루트 패키지 `com.chuseok22.whoim.server`. Thymeleaf starter와 `thymeleaf-extras-springsecurity6`도 의존성에 포함(용도 미정).
-- server libraries: Lombok, starter-validation, springdoc(Swagger 3.1.1)은 이슈 #3에서, jjwt(0.13.0), Flyway(`spring-boot-starter-flyway`, `flyway-database-postgresql`), 로깅 라이브러리(`com.chuseok22:logging:0.0.9`, 개인 Nexus 저장소)는 이슈 #2에서 도입했다. `server/build.gradle`에 있는 것만 현재 의존성이다.
+- server libraries: Lombok, starter-validation, springdoc(Swagger 3.1.1)은 이슈 #3에서, jjwt(0.13.0), Flyway(`spring-boot-starter-flyway`, `flyway-database-postgresql`), 로깅 라이브러리(`com.chuseok22:logging:0.0.9`, 개인 Nexus 저장소)는 이슈 #2에서 도입했다. `server/build.gradle`에 있는 것만 현재 의존성이다. SUH AI 연동은 yml 키 `llm.suh-ai.base-url`, `llm.suh-ai.api-key`, `llm.suh-ai.model`을 쓴다(`60-server-llm.md`).
 - web: React 19.2, Vite 8, TypeScript ~6.0, npm. CI는 Node 22.
 - Deploy: Docker(Docker Hub) + SSH 서버(Synology 추정). API `https://api.whoim.chuseok22.com`, web `https://www.whoim.chuseok22.com` (도메인은 사용자 확인).
 
@@ -57,9 +57,9 @@
 
 - 아래는 아직 정해지지 않았다. 확정 전에는 사용자 지시 없이 구현하지 않는다.
 - UI 방향과 mock 디자인(합의 후 구현, `70-web.md`)
-- SUH AI 연동 정보와 전체 API 엔드포인트 명세(이슈 #4, LLM은 `60-server-llm.md`)
+- 전체 API 엔드포인트 명세(이슈 #4 후속). SUH AI 연동은 `llm` 도메인에 구현되었고 Gemini fallback·라우팅은 `60-server-llm.md`의 미정 항목이다
 - 합성 데이터와 시연 대본의 세부 내용
-- 서비스 설정 동적 관리와 `ADMIN` 계정 기능(나중)
+- `setting_config` 쓰기 경로(관리자 화면·API)와 `ADMIN` 계정 기능(나중). 조회와 테이블(`setting_config`)은 이슈 #4에서 구현했다
 
 ## Reference documents
 

@@ -25,9 +25,10 @@ paths:
 | gap | Gap Detection | gap |
 | consultation | 후임자 Guided Decision Support (테이블 없음) | 없음 |
 | llm | LLM Provider 호출과 오케스트레이션 | 없음 |
+| setting | 서비스 설정 값 저장·조회(key-value) | setting_config |
 
 - Naming: 테이블 이름은 소문자 snake_case 단수형이다. 각 테이블은 소유 도메인이 정의한다.
-- Excluded: setting, admin 도메인은 없다. 서비스 설정 동적 관리와 ADMIN 기능은 나중이다.
+- Excluded: admin 도메인은 없다. ADMIN 기능과 설정 쓰기(관리) 경로는 나중이다. `setting`은 조회만 구현되어 있다.
 
 ## Domain package
 
@@ -45,8 +46,9 @@ com.chuseok22.whoim.server.{domain}
 └── infrastructure
     ├── entity            JPA 엔티티
     ├── repository        Spring Data Repository
+    ├── adapter           외부 연동 구현체(현재 llm 전용)
     ├── properties        @ConfigurationProperties
-    └── config            도메인 전용 설정, 외부 연동 어댑터
+    └── config            도메인 전용 설정
 ```
 
 - Location: 엔티티와 Repository는 `infrastructure`에 둔다. Controller는 `application`에 두고 Service만 호출한다.
@@ -77,10 +79,13 @@ com.chuseok22.whoim.server.{domain}
 
 ## Current code state
 
-- Present(이슈 #2까지): `ServerApplication`과 아래 세 도메인 패키지다.
+- Present(이슈 #2까지): `ServerApplication`과 아래 세 도메인 패키지다(이슈 #4의 `setting`·`llm`은 아래에 따로 적는다).
   - `common`: `application.exception`(`ErrorCode`, `CustomException`, `ErrorResponse`, `GlobalExceptionHandler`), `application.time.SeoulTime`, `infrastructure.config`(`ClockConfig`, `OpenApiConfig`, `JpaAuditingConfig`), `infrastructure.persistence.BaseEntity`.
   - `member`: `core.constant`(`Role`, `Position`), `application`(`dto.response.MemberResponse`, `service.MemberSeedValidator`), `infrastructure`(`entity.Member`, `repository.MemberRepository`, `properties.SeedProperties`, `config.MemberSeedRunner`).
   - `auth`: `application`(`controller.AuthController`·`AuthControllerDocs`, `dto.request.LoginRequest`, `dto.response.LoginResponse`, `dto.data.AuthenticatedMember`, `service.LoginService`), `infrastructure.properties.JwtProperties`, `infrastructure.config`.
 - Security classes: `SecurityConfig`, `JwtProvider`, `JwtAuthenticationFilter`, `JwtAuthenticationEntryPoint`, `JwtAccessDeniedHandler`, `CorsOrigins`, `SecurityPaths`는 모두 `auth.infrastructure.config`에 있다(`jwt`·`handler` 하위 패키지 없음). `SecurityConfig`는 이슈 #2에서 옛 `config/SecurityConfig`에서 이곳으로 옮겼고 `config/` 패키지는 없어졌다.
-- Not yet: handover, card, interview, evidence, gap, consultation, llm 패키지는 아직 없다.
+- 이슈 #4 추가:
+  - `setting`: `application.service.SettingConfigService`, `infrastructure`(`entity.SettingConfig`, `repository.SettingConfigRepository`).
+  - `llm`: `application`(`dto.data.LlmRequest`·`LlmResponse`, `service.LLMProvider`·`LlmService`), `infrastructure`(`adapter.SuhAiProvider`, `config.SuhAiClientConfig`, `properties.SuhAiProperties`). `core.constant`는 아직 없다.
+- Not yet: handover, card, interview, evidence, gap, consultation 패키지는 아직 없다.
 - Target: 위 구조는 규약이다. 새 코드는 이 구조로 만든다.
