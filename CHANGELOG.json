@@ -1,14 +1,50 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-16T05:57:40Z",
-    "currentVersion": "0.4.0",
+    "lastUpdated": "2026-10-16T14:34:37Z",
+    "currentVersion": "0.5.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 7
+    "totalReleases": 8
   },
   "releases": [
+    {
+      "version": "0.5.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-16",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- 도메인_모델과_상태_Enum_정의 — card 엔티티와 근거 연결, 상태 이력 추가\n- 도메인_모델과_상태_Enum_정의 — interview 엔티티와 인터뷰 상태 enum 추가\n- 도메인_모델과_상태_Enum_정의 — gap 엔티티와 근거 앵커 추가\n- 도메인_모델과_상태_Enum_정의 — evidence 문서 엔티티와 문서 유형 enum 추가\n- 도메인_모델과_상태_Enum_정의 — handover Package 상태 enum과 엔티티 추가\n\n### 📝 문서\n- CLAUDE.md 규칙 목록 갱신과 브레인스토밍 시작 절차 추가\n- 규칙 문서를 5개 파일 구조로 재구성하고 기획서 대비 제외 표 추가\n\n### ✅ 테스트\n- enum과 마이그레이션 CHECK 일치 검증 추가",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "도메인_모델과_상태_Enum_정의 — card 엔티티와 근거 연결, 상태 이력 추가",
+            "도메인_모델과_상태_Enum_정의 — interview 엔티티와 인터뷰 상태 enum 추가",
+            "도메인_모델과_상태_Enum_정의 — gap 엔티티와 근거 앵커 추가",
+            "도메인_모델과_상태_Enum_정의 — evidence 문서 엔티티와 문서 유형 enum 추가",
+            "도메인_모델과_상태_Enum_정의 — handover Package 상태 enum과 엔티티 추가"
+          ]
+        },
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "CLAUDE.md 규칙 목록 갱신과 브레인스토밍 시작 절차 추가",
+            "규칙 문서를 5개 파일 구조로 재구성하고 기획서 대비 제외 표 추가"
+          ]
+        },
+        "test": {
+          "title": "✅ 테스트",
+          "items": [
+            "enum과 마이그레이션 CHECK 일치 검증 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.4.0",
       "project_types": [
