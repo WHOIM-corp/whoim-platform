@@ -60,5 +60,6 @@ JPA 엔티티, 스키마(Flyway), Repository 규칙이다. 패키지 위치는 `
 
 - 이슈 #2에서 추가: `Member`(`member.infrastructure.entity`, 필드 `id`, `username`(unique), `password`, `name`, `role`, `position`), `MemberRepository`(`findByUsername`, `existsByUsername`), `BaseEntity`(`createdAt`/`updatedAt` `Instant`), `JpaAuditingConfig`(`Clock` 기반 `DateTimeProvider`), 마이그레이션 `V20261015_230147__create_member.sql`.
 - `Member`는 role-position 조합을 검증하지 않는다. 조합은 `MemberSeedValidator`와 DB `CHECK`가 막는다.
-- 마이그레이션은 컬럼 `UUID`/`TEXT`/`TIMESTAMPTZ`, `role`·`position`·조합 `CHECK` 3개, `username` UNIQUE를 정의한다. 다른 엔티티·Repository·마이그레이션은 아직 없다.
+- 이슈 #4에서 추가: `SettingConfig`(`setting.infrastructure.entity`, 필드 `id`, `configKey`(unique), `configValue`), `SettingConfigRepository`(`findByConfigKey`), 마이그레이션 `V20261016_143130__create_setting_config.sql`(`setting_config`: `id`, `config_key` UNIQUE, `config_value`, `created_at`, `updated_at`). 시드 데이터와 쓰기 경로는 없다. 이 마이그레이션도 실제 DB에서 적용·`validate`를 확인하지 못했다.
+- member 마이그레이션은 컬럼 `UUID`/`TEXT`/`TIMESTAMPTZ`, `role`·`position`·조합 `CHECK` 3개, `username` UNIQUE를 정의한다. 그 외 엔티티·Repository·마이그레이션은 아직 없다.
 - 검증 필요(미검증): 실제 DB 실행 전이라 Hibernate 7 `validate`와 `TEXT`+`CHECK`/`TIMESTAMPTZ`/`UUID` 조합, Flyway 마이그레이션 적용은 확인하지 못했다. Flyway 좌표는 `./gradlew compileJava`가 통과하는 것(의존성 해석)까지만 확인했다.
