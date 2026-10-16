@@ -57,4 +57,13 @@ public class Interview extends BaseEntity {
     this.endReason = null;
     this.traceState = "{}";
   }
+
+  public void updateTraceState(String traceStateJson) {
+    this.traceState = traceStateJson;
+  }
+
+  public void complete(InterviewEndReason reason) {
+    this.status = InterviewStatus.COMPLETED;
+    this.endReason = reason;
+  }
 }
