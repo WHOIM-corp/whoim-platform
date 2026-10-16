@@ -24,6 +24,21 @@ public class SettingConfigService {
   }
 
   @Transactional(readOnly = true)
+  public int getInt(String configKey, int defaultValue) {
+    String value = getString(configKey, null);
+    if (value == null) {
+      return defaultValue;
+    }
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException exception) {
+      // 값은 남기지 않고 키 이름만 남긴다
+      log.warn("setting_config 값이 정수가 아니어서 기본값을 사용합니다: key={}", configKey);
+      return defaultValue;
+    }
+  }
+
+  @Transactional(readOnly = true)
   public double getDouble(String configKey, double defaultValue) {
     String value = getString(configKey, null);
     if (value == null) {
