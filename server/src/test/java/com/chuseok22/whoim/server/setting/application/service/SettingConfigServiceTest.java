@@ -140,6 +140,34 @@ class SettingConfigServiceTest {
   }
 
   @Test
+  void getLines_trimsDropsBlanksAndDuplicatesKeepingOrder() {
+    String key = SettingKey.DLP_ENTITIES_CUSTOMER.key();
+    when(settingConfigRepository.findByConfigKey(key))
+        .thenReturn(Optional.of(config(key, " 가나다상사 \n\n라마바물류\r\n가나다상사\n  \n마바사")));
+
+    assertThat(settingConfigService.getLines(SettingKey.DLP_ENTITIES_CUSTOMER))
+        .containsExactly("가나다상사", "라마바물류", "마바사");
+  }
+
+  @Test
+  void getLines_returnsEmpty_whenNoRow() {
+    when(settingConfigRepository.findByConfigKey(SettingKey.DLP_ENTITIES_PERSON.key())).thenReturn(Optional.empty());
+
+    assertThat(settingConfigService.getLines(SettingKey.DLP_ENTITIES_PERSON)).isEmpty();
+  }
+
+  @Test
+  void list_showsEmptyEffectiveValueForDictionaryKeys() {
+    when(settingConfigRepository.findByConfigKey(anyString())).thenReturn(Optional.empty());
+
+    SettingConfigResponse response = find(settingConfigService.list(), "dlp.entities.customer");
+
+    assertThat(response.defaultValue()).isEmpty();
+    assertThat(response.effectiveValue()).isEmpty();
+    assertThat(response.overridden()).isFalse();
+  }
+
+  @Test
   void list_returnsEveryRegisteredKeyInOrder() {
     when(settingConfigRepository.findByConfigKey(anyString())).thenReturn(Optional.empty());
 

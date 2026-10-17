@@ -15,10 +15,9 @@ import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import com.chuseok22.whoim.server.dlp.application.service.DlpAiDetector.DetectedSpan;
 import com.chuseok22.whoim.server.dlp.core.constant.DlpEntityType;
-import com.chuseok22.whoim.server.dlp.infrastructure.properties.DlpProperties;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
 import com.chuseok22.whoim.server.llm.application.dto.data.GuardedInput;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +28,7 @@ class DlpServiceTest {
 
   private final DlpAiDetector detector = mock(DlpAiDetector.class);
   private final DlpService service = new DlpService(
-      new DlpRuleMasker(new DlpProperties(Map.of())), detector);
+      new DlpRuleMasker(mock(SettingConfigService.class)), detector);
   private final Logger logger = (Logger) LoggerFactory.getLogger(DlpService.class);
   private ListAppender<ILoggingEvent> appender;
 

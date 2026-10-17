@@ -78,6 +78,16 @@ public class SettingConfigService {
     return Double.isFinite(value) ? value : defaultValue;
   }
 
+  // 줄바꿈으로 구분한 값을 trim하고 빈 줄과 중복을 제거해 순서대로 돌려준다. 값은 로그에 남기지 않는다
+  @Transactional(readOnly = true)
+  public List<String> getLines(SettingKey key) {
+    String value = getString(key.key(), key.defaultValue());
+    if (value == null) {
+      return List.of();
+    }
+    return value.lines().map(String::trim).filter(term -> !term.isEmpty()).distinct().toList();
+  }
+
   @Transactional(readOnly = true)
   public List<SettingConfigResponse> list() {
     return Arrays.stream(SettingKey.values())

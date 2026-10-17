@@ -1,20 +1,31 @@
 package com.chuseok22.whoim.server.dlp.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.chuseok22.whoim.server.dlp.core.constant.DlpEntityType;
-import com.chuseok22.whoim.server.dlp.infrastructure.properties.DlpProperties;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class DlpRuleMaskerTest {
 
-  private final DlpRuleMasker masker = new DlpRuleMasker(new DlpProperties(Map.of(
-      DlpEntityType.CUSTOMER, List.of("가나다상사"),
-      DlpEntityType.PARTNER, List.of("라마바물류"),
-      DlpEntityType.PROJECT, List.of("Project Alpha"),
-      DlpEntityType.PERSON, List.of("김가나"))));
+  private final DlpRuleMasker masker = maskerWith(Map.of(
+      SettingKey.DLP_ENTITIES_CUSTOMER, List.of("가나다상사"),
+      SettingKey.DLP_ENTITIES_PARTNER, List.of("라마바물류"),
+      SettingKey.DLP_ENTITIES_PROJECT, List.of("Project Alpha"),
+      SettingKey.DLP_ENTITIES_PERSON, List.of("김가나")));
+
+  private static DlpRuleMasker maskerWith(Map<SettingKey, List<String>> termsByKey) {
+    SettingConfigService settingConfigService = mock(SettingConfigService.class);
+    for (SettingKey key : SettingKey.values()) {
+      when(settingConfigService.getLines(key)).thenReturn(termsByKey.getOrDefault(key, List.of()));
+    }
+    return new DlpRuleMasker(settingConfigService);
+  }
 
   @Test
   void maskByRules_redactsIpEmailPhoneRrnAndKey() {
@@ -53,12 +64,33 @@ class DlpRuleMaskerTest {
 
   @Test
   void maskByRules_prefersLongerDictionaryTerm() {
-    DlpRuleMasker shortAndLong = new DlpRuleMasker(new DlpProperties(Map.of(
-        DlpEntityType.CUSTOMER, List.of("A사", "A사업부"))));
+    DlpRuleMasker shortAndLong = maskerWith(Map.of(SettingKey.DLP_ENTITIES_CUSTOMER, List.of("A사", "A사업부")));
 
     String masked = shortAndLong.maskByRules("A사업부와 A사", new DlpMaskingSession());
 
     assertThat(masked).isEqualTo("[CUSTOMER_01]와 [CUSTOMER_02]");
+  }
+
+  @Test
+  void maskByRules_appliesDictionaryChangeOnNextCall() {
+    SettingConfigService settingConfigService = mock(SettingConfigService.class);
+    for (SettingKey key : SettingKey.values()) {
+      when(settingConfigService.getLines(key)).thenReturn(List.of());
+    }
+    DlpRuleMasker liveMasker = new DlpRuleMasker(settingConfigService);
+
+    assertThat(liveMasker.maskByRules("가나다상사 방문", new DlpMaskingSession())).isEqualTo("가나다상사 방문");
+
+    when(settingConfigService.getLines(SettingKey.DLP_ENTITIES_CUSTOMER)).thenReturn(List.of("가나다상사"));
+
+    assertThat(liveMasker.maskByRules("가나다상사 방문", new DlpMaskingSession())).isEqualTo("[CUSTOMER_01] 방문");
+  }
+
+  @Test
+  void maskByRules_masksNothingByDictionary_whenAllListsEmpty() {
+    DlpRuleMasker emptyMasker = maskerWith(Map.of());
+
+    assertThat(emptyMasker.maskByRules("가나다상사와 김가나", new DlpMaskingSession())).isEqualTo("가나다상사와 김가나");
   }
 
   @Test
@@ -77,16 +109,14 @@ class DlpRuleMaskerTest {
 
   @Test
   void maskByRules_ignoresBlankDictionaryTerms() {
-    DlpRuleMasker blankTerms = new DlpRuleMasker(new DlpProperties(Map.of(
-        DlpEntityType.CUSTOMER, List.of("", "  "))));
+    DlpRuleMasker blankTerms = maskerWith(Map.of(SettingKey.DLP_ENTITIES_CUSTOMER, List.of("", "  ")));
 
     assertThat(blankTerms.maskByRules("아무 말이나", new DlpMaskingSession())).isEqualTo("아무 말이나");
   }
 
   @Test
   void maskByRules_doesNotRemaskTokens() {
-    DlpRuleMasker tokenLikeTerms = new DlpRuleMasker(new DlpProperties(Map.of(
-        DlpEntityType.CUSTOMER, List.of("CUSTOMER", "EMAIL"))));
+    DlpRuleMasker tokenLikeTerms = maskerWith(Map.of(SettingKey.DLP_ENTITIES_CUSTOMER, List.of("CUSTOMER", "EMAIL")));
     String text = "[CUSTOMER_01] 와 [REDACTED_EMAIL_01]";
 
     assertThat(tokenLikeTerms.maskByRules(text, new DlpMaskingSession())).isEqualTo(text);
@@ -94,8 +124,7 @@ class DlpRuleMaskerTest {
 
   @Test
   void maskByRules_masksDictionaryTermInsideBrackets() {
-    DlpRuleMasker bracketTerm = new DlpRuleMasker(new DlpProperties(Map.of(
-        DlpEntityType.PROJECT, List.of("PHOENIX"))));
+    DlpRuleMasker bracketTerm = maskerWith(Map.of(SettingKey.DLP_ENTITIES_PROJECT, List.of("PHOENIX")));
 
     assertThat(bracketTerm.maskByRules("[PHOENIX] 배포 일정", new DlpMaskingSession()))
         .isEqualTo("[[PROJECT_01]] 배포 일정");
@@ -103,8 +132,7 @@ class DlpRuleMaskerTest {
 
   @Test
   void maskByRules_fallsBackToOther_whenDictionaryLookupMisses() {
-    DlpRuleMasker unicodeFold = new DlpRuleMasker(new DlpProperties(Map.of(
-        DlpEntityType.CUSTOMER, List.of("s"))));
+    DlpRuleMasker unicodeFold = maskerWith(Map.of(SettingKey.DLP_ENTITIES_CUSTOMER, List.of("s")));
 
     assertThat(unicodeFold.maskByRules("ſ", new DlpMaskingSession())).isEqualTo("[SENSITIVE_01]");
   }

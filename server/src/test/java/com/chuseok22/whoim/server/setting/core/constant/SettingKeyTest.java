@@ -65,6 +65,42 @@ class SettingKeyTest {
     }).doesNotThrowAnyException();
   }
 
+  @Test
+  void validate_acceptsMultiLineTermsIgnoringBlankLines() {
+    assertThatCode(() -> SettingKey.DLP_ENTITIES_CUSTOMER.validate("가나다상사\n\n  라마바물류  \r\n\n")).doesNotThrowAnyException();
+    assertThatCode(() -> SettingKey.DLP_ENTITIES_CUSTOMER.validate("가" .repeat(2) + "\n" + "a".repeat(100)))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void validate_rejectsLinesTermOutsideLengthRange() {
+    assertInvalid(SettingKey.DLP_ENTITIES_PERSON, "가나\n가");
+    assertInvalid(SettingKey.DLP_ENTITIES_PERSON, "a".repeat(101));
+  }
+
+  @Test
+  void validate_rejectsTooManyLinesTerms() {
+    String fiveHundred = java.util.stream.IntStream.range(0, 500).mapToObj(i -> "term" + i)
+        .collect(java.util.stream.Collectors.joining("\n"));
+    assertThatCode(() -> SettingKey.DLP_ENTITIES_PROJECT.validate(fiveHundred)).doesNotThrowAnyException();
+    assertInvalid(SettingKey.DLP_ENTITIES_PROJECT, fiveHundred + "\nterm500");
+  }
+
+  @Test
+  void validate_rejectsLinesValueOverTotalLength() {
+    String overLimit = java.util.stream.IntStream.range(0, 400).mapToObj(i -> "a".repeat(20))
+        .collect(java.util.stream.Collectors.joining("\n"));
+    assertInvalid(SettingKey.DLP_ENTITIES_PARTNER, overLimit);
+  }
+
+  @Test
+  void validate_doesNotLeakLinesValueInMessage() {
+    String secretTerm = "비공개고객사" .repeat(30);
+    assertThatThrownBy(() -> SettingKey.DLP_ENTITIES_CUSTOMER.validate(secretTerm))
+        .isInstanceOf(CustomException.class)
+        .satisfies(exception -> assertThat(String.valueOf(exception.getMessage())).doesNotContain("비공개고객사"));
+  }
+
   private static void assertInvalid(SettingKey key, String value) {
     assertThatThrownBy(() -> key.validate(value))
         .isInstanceOfSatisfying(CustomException.class,

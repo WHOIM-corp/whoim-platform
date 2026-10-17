@@ -3,6 +3,7 @@ package com.chuseok22.whoim.server.setting.core.constant;
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -25,10 +26,22 @@ public enum SettingKey {
   PROMPT_CARD_GENERATION("prompt.card-generation", "Card 생성 프롬프트 지침", SettingValueType.STRING,
       DefaultPromptInstructions.CARD_GENERATION, 0, 0, 8000),
   PROMPT_DLP_DETECTION("prompt.dlp-detection", "DLP 탐지 프롬프트 지침", SettingValueType.STRING,
-      DefaultPromptInstructions.DLP_DETECTION, 0, 0, 8000);
+      DefaultPromptInstructions.DLP_DETECTION, 0, 0, 8000),
+  DLP_ENTITIES_CUSTOMER("dlp.entities.customer", "DLP 사전: 고객사 용어(줄바꿈으로 구분)", SettingValueType.LINES, "", 0, 0,
+      8000),
+  DLP_ENTITIES_PARTNER("dlp.entities.partner", "DLP 사전: 협력사 용어(줄바꿈으로 구분)", SettingValueType.LINES, "", 0, 0,
+      8000),
+  DLP_ENTITIES_PROJECT("dlp.entities.project", "DLP 사전: 프로젝트 용어(줄바꿈으로 구분)", SettingValueType.LINES, "", 0, 0,
+      8000),
+  DLP_ENTITIES_PERSON("dlp.entities.person", "DLP 사전: 인명 용어(줄바꿈으로 구분)", SettingValueType.LINES, "", 0, 0,
+      8000);
 
   // SUH AI 모델명은 name:tag 형태라 콜론을 허용한다
   private static final Pattern MODEL_NAME = Pattern.compile("^[A-Za-z0-9._:-]+$");
+
+  private static final int MIN_TERM_LENGTH = 2;
+  private static final int MAX_TERM_LENGTH = 100;
+  private static final int MAX_TERM_COUNT = 500;
 
   private final String key;
   private final String description;
@@ -80,12 +93,23 @@ public enum SettingKey {
       case STRING -> validateString(value);
       case INTEGER -> validateNumber(parseInteger(value));
       case DECIMAL -> validateNumber(parseDecimal(value));
+      case LINES -> validateLines(value);
     }
   }
 
   private void validateString(String value) {
     boolean modelNameKey = this == LLM_SUH_AI_MODEL || this == LLM_GEMINI_MODEL;
     if (value.length() > maxLength || (modelNameKey && !MODEL_NAME.matcher(value).matches())) {
+      throw new CustomException(ErrorCode.SETTING_VALUE_INVALID);
+    }
+  }
+
+  // 빈 줄은 무시하고 용어는 앞뒤 공백을 제거한 길이로 검사한다
+  private void validateLines(String value) {
+    List<String> terms = value.lines().map(String::trim).filter(term -> !term.isEmpty()).toList();
+    boolean invalidTerm = terms.stream()
+        .anyMatch(term -> term.length() < MIN_TERM_LENGTH || term.length() > MAX_TERM_LENGTH);
+    if (value.length() > maxLength || terms.size() > MAX_TERM_COUNT || invalidTerm) {
       throw new CustomException(ErrorCode.SETTING_VALUE_INVALID);
     }
   }

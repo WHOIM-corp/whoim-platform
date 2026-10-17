@@ -9,8 +9,8 @@ import com.chuseok22.whoim.server.common.application.text.ExcerptMatcher;
 import com.chuseok22.whoim.server.dlp.application.service.DlpAiDetector;
 import com.chuseok22.whoim.server.dlp.application.service.DlpRuleMasker;
 import com.chuseok22.whoim.server.dlp.application.service.DlpService;
-import com.chuseok22.whoim.server.dlp.core.constant.DlpEntityType;
-import com.chuseok22.whoim.server.dlp.infrastructure.properties.DlpProperties;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import com.chuseok22.whoim.server.interview.application.dto.data.InterviewTurnResult;
 import com.chuseok22.whoim.server.interview.core.constant.TraceElement;
 import com.chuseok22.whoim.server.interview.core.constant.TraceElementStatus;
@@ -41,7 +41,13 @@ class InterviewDlpFlowTest {
             "source":"DIRECT","excerpt":"[PERSON_01] 팀장이 먼저 전화했다"}],"nextQuestion":"다음은?"}""",
             "fake");
       }), JsonMapper.builder().build(), Validation.buildDefaultValidatorFactory().getValidator()),
-      new DlpService(new DlpRuleMasker(new DlpProperties(Map.of(DlpEntityType.PERSON, List.of("김가나")))), detector));
+      new DlpService(new DlpRuleMasker(settingConfigService()), detector));
+
+  private static SettingConfigService settingConfigService() {
+    SettingConfigService settingConfigService = mock(SettingConfigService.class);
+    when(settingConfigService.getLines(SettingKey.DLP_ENTITIES_PERSON)).thenReturn(List.of("김가나"));
+    return settingConfigService;
+  }
 
   private InterviewTurnResult generateFromAnswer() {
     when(detector.detect(anyString())).thenReturn(List.of());
