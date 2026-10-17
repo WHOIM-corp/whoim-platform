@@ -1,5 +1,7 @@
 package com.chuseok22.whoim.server.handover.infrastructure.entity;
 
+import com.chuseok22.whoim.server.common.application.exception.CustomException;
+import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import com.chuseok22.whoim.server.common.infrastructure.persistence.BaseEntity;
 import com.chuseok22.whoim.server.handover.core.constant.HandoverStatus;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
@@ -62,5 +64,14 @@ public class HandoverPackage extends BaseEntity {
   // successor가 null이면 지정을 해제한다
   public void assignSuccessor(Member successor) {
     this.successor = successor;
+  }
+
+  public void publish(Member publisher, Instant publishedAt) {
+    if (!status.canTransitionTo(HandoverStatus.PUBLISHED)) {
+      throw new CustomException(ErrorCode.STATE_CONFLICT);
+    }
+    this.status = HandoverStatus.PUBLISHED;
+    this.publishedAt = publishedAt;
+    this.publishedBy = publisher;
   }
 }

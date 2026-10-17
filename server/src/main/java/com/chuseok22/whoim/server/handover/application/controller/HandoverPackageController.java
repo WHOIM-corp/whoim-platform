@@ -64,4 +64,14 @@ public class HandoverPackageController implements HandoverPackageControllerDocs 
       @PathVariable("handover-package-id") UUID handoverPackageId) {
     return ResponseEntity.ok(handoverPackageService.get(requester, handoverPackageId));
   }
+
+  @LogMonitoring
+  @Override
+  @PreAuthorize("hasAuthority('POSITION_REVIEWER')")
+  @PostMapping("/{handover-package-id}/publish")
+  public ResponseEntity<HandoverPackageResponse> publish(
+      @AuthenticationPrincipal AuthenticatedMember requester,
+      @PathVariable("handover-package-id") UUID handoverPackageId) {
+    return ResponseEntity.ok(handoverPackageService.publish(requester, handoverPackageId));
+  }
 }

@@ -1,6 +1,8 @@
 package com.chuseok22.whoim.server.card.infrastructure.entity;
 
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
+import com.chuseok22.whoim.server.common.application.exception.CustomException;
+import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import com.chuseok22.whoim.server.common.infrastructure.persistence.BaseEntity;
 import com.chuseok22.whoim.server.handover.infrastructure.entity.HandoverPackage;
 import com.chuseok22.whoim.server.interview.infrastructure.entity.Interview;
@@ -82,5 +84,20 @@ public class TraceCard extends BaseEntity {
     this.reason = reason;
     this.exception = exception;
     this.risk = risk;
+  }
+
+  public void confirmByPredecessor() {
+    moveTo(CardStatus.PREDECESSOR_CONFIRMED);
+  }
+
+  public void approve() {
+    moveTo(CardStatus.APPROVED);
+  }
+
+  private void moveTo(CardStatus next) {
+    if (!status.canTransitionTo(next)) {
+      throw new CustomException(ErrorCode.STATE_CONFLICT);
+    }
+    this.status = next;
   }
 }
