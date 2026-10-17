@@ -13,14 +13,8 @@ import java.util.stream.Collectors;
 
 public final class CardGenerationPrompt {
 
-  private static final String SYSTEM = """
-      당신은 전임자와의 인터뷰 결과를 TRACE Card로 정리하는 편집자입니다.
-
-      규칙:
-      - title을 포함한 모든 필드는 [채워진 TRACE 요소]에 주어진 내용만 다듬어 씁니다. 새 사실을 만들거나 추측하지 않습니다.
-      - 주어지지 않은 요소의 필드는 null로 둡니다.
-      - directEvidence는 [답변 발췌 후보]의 답변에서 글자 그대로 복사한 구절과 그 턴 번호입니다. 의역하지 않습니다.
-      - 근거는 주어진 답변 안에서만 고릅니다. 모르면 비워 두고 추측하지 않습니다.
+  // 관리자가 지침을 어떻게 바꿔도 파서가 기대하는 출력 형식은 항상 뒤에 붙는다
+  private static final String FORMAT_BLOCK = """
       - 반드시 JSON만 출력합니다. 설명, 코드 블록, 다른 문장은 쓰지 않습니다.
 
       응답 형태:
@@ -31,7 +25,7 @@ public final class CardGenerationPrompt {
   }
 
   // 문서 전문·대화 전문은 보내지 않고, DIRECT 요소를 낸 턴의 답변만 발췌 후보로 보낸다
-  public static LlmRequest build(Gap gap, TraceState state, List<InterviewTurn> turns) {
+  public static LlmRequest build(String instruction, Gap gap, TraceState state, List<InterviewTurn> turns) {
     Set<Integer> directTurnNumbers = state.entries().values().stream()
         .filter(entry -> entry.status() == TraceElementStatus.FILLED && entry.source() == EvidenceLinkType.DIRECT)
         .map(TraceStateEntry::turnNumber)
@@ -41,7 +35,7 @@ public final class CardGenerationPrompt {
         + "\n\n[질문]\n" + gap.getQuestion()
         + "\n\n[채워진 TRACE 요소]\n" + filledSection(state)
         + "\n[답변 발췌 후보]\n" + answerSection(turns, directTurnNumbers);
-    return new LlmRequest(SYSTEM, prompt, null, null);
+    return new LlmRequest(instruction + "\n\n" + FORMAT_BLOCK, prompt, null, null);
   }
 
   private static String filledSection(TraceState state) {
