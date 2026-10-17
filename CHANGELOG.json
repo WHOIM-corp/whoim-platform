@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T06:25:25Z",
-    "currentVersion": "0.8.0",
+    "lastUpdated": "2026-10-17T07:30:41Z",
+    "currentVersion": "0.9.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 11
+    "totalReleases": 12
   },
   "releases": [
+    {
+      "version": "0.9.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-17",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- 후임자_상담_API와_Reject_서버_묶음_20_18_서버 — 후임자 상담 API 추가 (Hard Rule 후보 조회, 추가 질문, Card 제시)\n- 후임자_상담_API와_Reject_서버_묶음_20_18_서버 — 승인자 Card Reject API 추가\n\n### ✅ 테스트\n- 후임자 상담 Hard Rule과 API 테스트 추가\n- Card Reject 상태 전이와 API 테스트 추가",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "후임자_상담_API와_Reject_서버_묶음_20_18_서버 — 후임자 상담 API 추가 (Hard Rule 후보 조회, 추가 질문, Card 제시)",
+            "후임자_상담_API와_Reject_서버_묶음_20_18_서버 — 승인자 Card Reject API 추가"
+          ]
+        },
+        "test": {
+          "title": "✅ 테스트",
+          "items": [
+            "후임자 상담 Hard Rule과 API 테스트 추가",
+            "Card Reject 상태 전이와 API 테스트 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.8.0",
       "project_types": [
