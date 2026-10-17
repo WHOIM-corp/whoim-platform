@@ -20,6 +20,8 @@ import com.chuseok22.whoim.server.handover.infrastructure.repository.HandoverPac
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,9 +34,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 @Service
 public class GapAnalysisService {
-
-  public static final String MAX_INPUT_CHARACTERS_KEY = "gap.analysis.max-input-characters";
-  public static final int DEFAULT_MAX_INPUT_CHARACTERS = 20000;
 
   private final HandoverPackageRepository handoverPackageRepository;
   private final EvidenceDocumentRepository evidenceDocumentRepository;
@@ -74,7 +73,10 @@ public class GapAnalysisService {
   public List<GapResponse> analyze(AuthenticatedMember requester, UUID handoverPackageId) {
     GapAnalysisInput input = readTransaction.execute(status -> prepareInput(requester, handoverPackageId));
 
-    GapAnalysisResult result = llmService.generate(GapAnalysisPrompt.build(input.text()), GapAnalysisResult.class);
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_GAP_ANALYSIS, DefaultPromptInstructions.GAP_ANALYSIS);
+    GapAnalysisResult result = llmService.generate(
+        GapAnalysisPrompt.build(instruction, input.text()), GapAnalysisResult.class);
 
     return writeTransaction.execute(status -> saveResult(handoverPackageId, input, result));
   }
@@ -94,7 +96,7 @@ public class GapAnalysisService {
       throw new CustomException(ErrorCode.GAP_ANALYSIS_NO_DOCUMENTS);
     }
     GapAnalysisInput input = gapAnalysisInputBuilder.build(documents);
-    int maxInputCharacters = settingConfigService.getInt(MAX_INPUT_CHARACTERS_KEY, DEFAULT_MAX_INPUT_CHARACTERS);
+    int maxInputCharacters = settingConfigService.getInt(SettingKey.GAP_ANALYSIS_MAX_INPUT_CHARACTERS);
     if (input.text().length() > maxInputCharacters) {
       throw new CustomException(ErrorCode.GAP_ANALYSIS_INPUT_TOO_LARGE);
     }

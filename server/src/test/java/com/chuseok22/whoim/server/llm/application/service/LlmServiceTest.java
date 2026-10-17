@@ -3,105 +3,64 @@ package com.chuseok22.whoim.server.llm.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
+import com.chuseok22.whoim.server.llm.application.dto.data.GuardedInput;
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
-import com.chuseok22.whoim.server.llm.application.dto.data.LlmResponse;
-import jakarta.validation.Validation;
-import jakarta.validation.constraints.NotBlank;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Map;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
+import org.mockito.ArgumentCaptor;
 
 class LlmServiceTest {
 
-  record TestAnswer(@NotBlank String answer) {
+  record TestAnswer(String answer) {
   }
 
-  private final LlmRequest request = new LlmRequest(null, "질문", null, null);
-  private LLMProvider provider;
-  private LlmService llmService;
+  private final LlmChain chain = mock(LlmChain.class);
+  private final LlmInputGuard guard = mock(LlmInputGuard.class);
+  private final LlmService service = new LlmService(chain, guard);
 
-  @BeforeEach
-  void setUp() {
-    provider = mock(LLMProvider.class);
-    llmService = new LlmService(provider, JsonMapper.builder().build(),
-        Validation.buildDefaultValidatorFactory().getValidator());
-  }
+  @Test
+  void generate_passesMaskedPromptToChain() {
+    Map<String, Object> schema = Map.of("type", "object");
+    UnaryOperator<String> restorer = UnaryOperator.identity();
+    when(guard.guard("원문")).thenReturn(new GuardedInput("마스킹", restorer));
+    TestAnswer expected = new TestAnswer("ok");
+    when(chain.generate(any(LlmRequest.class), eq(TestAnswer.class), any())).thenReturn(expected);
 
-  private void respondWith(String content) {
-    when(provider.generate(any())).thenReturn(new LlmResponse(content, "test"));
+    TestAnswer actual = service.generate(new LlmRequest("시스템", "원문", schema, 0.3), TestAnswer.class);
+
+    assertThat(actual).isSameAs(expected);
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(chain).generate(captor.capture(), eq(TestAnswer.class), any());
+    assertThat(captor.getValue()).isEqualTo(new LlmRequest("시스템", "마스킹", schema, 0.3));
   }
 
   @Test
-  void generate_parsesContentIntoRecord() {
-    respondWith("{\"answer\":\"ok\"}");
+  void generate_passesRestorerAsContentTransformer() {
+    UnaryOperator<String> restorer = text -> text.replace("[PERSON_01]", "김가나");
+    when(guard.guard("원문")).thenReturn(new GuardedInput("마스킹", restorer));
 
-    assertThat(llmService.generate(request, TestAnswer.class)).isEqualTo(new TestAnswer("ok"));
+    service.generate(new LlmRequest(null, "원문", null, null), TestAnswer.class);
+
+    verify(chain).generate(any(LlmRequest.class), eq(TestAnswer.class), eq(restorer));
   }
 
   @Test
-  void generate_extractsJsonFromWrappedContent() {
-    String[] wrappedContents = {
-        "```json\n{\"answer\":\"ok\"}\n```",
-        "<think>생각</think>{\"answer\":\"ok\"}",
-        "<think>초안 {\"answer\":\"x\"}</think>{\"answer\":\"ok\"}"
-    };
+  void generate_doesNotCallChain_whenGuardThrows() {
+    when(guard.guard("원문")).thenThrow(new CustomException(ErrorCode.DLP_UNAVAILABLE));
 
-    for (String content : wrappedContents) {
-      respondWith(content);
-      assertThat(llmService.generate(request, TestAnswer.class)).isEqualTo(new TestAnswer("ok"));
-    }
-  }
-
-  @Test
-  void generate_ignoresUnknownFields() {
-    respondWith("{\"answer\":\"ok\",\"extra\":1}");
-
-    assertThat(llmService.generate(request, TestAnswer.class)).isEqualTo(new TestAnswer("ok"));
-  }
-
-  @Test
-  void generate_throwsLlmUnavailable_whenContentNotJson() {
-    respondWith("죄송합니다");
-
-    // 파서 메시지가 응답 본문 토큰을 담을 수 있어 cause를 남기지 않는다
-    assertThatThrownBy(() -> llmService.generate(request, TestAnswer.class))
-        .isInstanceOfSatisfying(CustomException.class, e -> {
-          assertThat(e.getErrorCode()).isEqualTo(ErrorCode.LLM_UNAVAILABLE);
-          assertThat(e.getCause()).isNull();
-        });
-  }
-
-  @Test
-  void generate_throwsLlmUnavailable_whenContentIsNullLiteral() {
-    respondWith("null");
-
-    assertThatThrownBy(() -> llmService.generate(request, TestAnswer.class))
-        .isInstanceOfSatisfying(CustomException.class,
-            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.LLM_UNAVAILABLE));
-  }
-
-  @Test
-  void generate_throwsLlmUnavailable_whenValidationFails() {
-    respondWith("{\"answer\":\"\"}");
-
-    assertThatThrownBy(() -> llmService.generate(request, TestAnswer.class))
-        .isInstanceOfSatisfying(CustomException.class,
-            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.LLM_UNAVAILABLE));
-  }
-
-  @Test
-  void generate_propagatesProviderFailure() {
-    CustomException failure = new CustomException(ErrorCode.LLM_UNAVAILABLE);
-    when(provider.generate(any())).thenThrow(failure);
-
-    assertThatThrownBy(() -> llmService.generate(request, TestAnswer.class)).isSameAs(failure);
-    verify(provider, times(1)).generate(any());
+    assertThatThrownBy(() -> service.generate(new LlmRequest(null, "원문", null, null), TestAnswer.class))
+        .isInstanceOf(CustomException.class)
+        .extracting(thrown -> ((CustomException) thrown).getErrorCode())
+        .isEqualTo(ErrorCode.DLP_UNAVAILABLE);
+    verifyNoInteractions(chain);
   }
 }

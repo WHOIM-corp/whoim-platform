@@ -7,6 +7,7 @@ import com.chuseok22.whoim.server.llm.application.dto.data.LlmResponse;
 import com.chuseok22.whoim.server.llm.application.service.LLMProvider;
 import com.chuseok22.whoim.server.llm.infrastructure.properties.SuhAiProperties;
 import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +22,6 @@ import org.springframework.web.client.RestClientException;
 public class SuhAiProvider implements LLMProvider {
 
   private static final String PROVIDER_NAME = "SUH_AI";
-  private static final String MODEL_SETTING_KEY = "llm.suh-ai.model";
-  private static final String TEMPERATURE_SETTING_KEY = "llm.suh-ai.temperature";
-  private static final double DEFAULT_TEMPERATURE = 0.2;
 
   private final RestClient restClient;
   private final SuhAiProperties properties;
@@ -43,7 +41,7 @@ public class SuhAiProvider implements LLMProvider {
   @Override
   public LlmResponse generate(LlmRequest request) {
     // 모델은 이 한 지점에서만 읽는다. 관리자 기능이 생기면 이 지점만 바꾸면 된다
-    String model = settingConfigService.getString(MODEL_SETTING_KEY, properties.model());
+    String model = settingConfigService.getString(SettingKey.LLM_SUH_AI_MODEL, properties.model());
 
     ChatResult result;
     try {
@@ -89,9 +87,7 @@ public class SuhAiProvider implements LLMProvider {
     if (request.temperature() != null) {
       return request.temperature();
     }
-    double configured = settingConfigService.getDouble(TEMPERATURE_SETTING_KEY, DEFAULT_TEMPERATURE);
-    // NaN/Infinity는 JSON 직렬화가 불가능하거나 서버가 거부하므로 기본값으로 대체한다
-    return Double.isFinite(configured) ? configured : DEFAULT_TEMPERATURE;
+    return settingConfigService.getDouble(SettingKey.LLM_SUH_AI_TEMPERATURE);
   }
 
   private void logSuccess(String model, Map<String, Object> metrics) {

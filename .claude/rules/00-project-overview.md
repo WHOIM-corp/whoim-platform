@@ -20,7 +20,7 @@
 - Language: Java 21(server), TypeScript(web)
 - Framework: Spring Boot 4.1.1(Gradle Groovy, JPA, Spring Security, Flyway, Actuator), React 19.2 + Vite 8
 - Database / storage: PostgreSQL
-- LLM: SUH AI(Gemma 4 E4B) 단독. Gemini 연동은 추후
+- LLM: 생성은 Gemini, DLP 탐지는 SUH AI(Gemma 4 E4B)이고 실패 시 Gemini로 넘어간다
 - Infra / deployment: Docker(Docker Hub) + SSH 서버. API `https://api.whoim.chuseok22.com`, web `https://www.whoim.chuseok22.com`
 
 ## Important directories
@@ -42,7 +42,7 @@
 
 - Goal: Hero Flow(Evidence-first → TRACE → Verified TRACE → Decision Reuse) 하나만 완성한다. 개발은 단독 약 3주다.
 - P0: 데이터 모델, JWT 인증, 문서 업로드, Gap 탐지("분석 시작", Package당 1회), 인터뷰(3~5턴, 텍스트만) → Card 생성, 전임자 Confirm, 승인자 Approve·Reject·Package 생성·Publish, 후임자 상담.
-- P1: Reject와 Card 이력 타임라인, DLP(Rule/Regex), 문서 업로드 웹 화면.
+- P1: Reject와 Card 이력 타임라인, DLP(Rule/Regex + AI 2차 탐지), 문서 업로드 웹 화면.
 - P2: Gap 유형 일반화, Fail-Closed 시연 코드, 모의 Connector 화면(사용자 요청, 이슈 미등록), UI polish.
 - Data: 합성 데이터만 쓴다. 실제 회사·인물·내부 정보를 코드, 테스트, 스크린샷에 넣지 않는다. 합성 데이터와 시연 대본은 Claude가 초안을 쓰고 사용자가 검수한다.
 - Accounts: 회원가입 없음. 시연 계정 4개(전임자, 후임자, 승인자, 관리자)를 `application-*.yml`의 `seed.members`로 서버 기동 시 만든다. 나머지 데이터는 앱 기능으로 입력한다.
@@ -56,7 +56,7 @@
 | Reject된 판단의 재인터뷰 | 언급 없음 | 제외. Gap당 인터뷰 하나 | MVP 단순화 |
 | 실제 Git·Jira·Wiki 연동 | 4-6: 근거 출처로 연동 | 제외. 문서 업로드만(모의 화면은 P2) | 일정 |
 | 판단 발생 시점부터 지속 축적 | 3-5 | 제외(Scheduler 없음) | 일정 |
-| 온프레미스·로컬 AI DLP | 4-6: 전면 적용 | Rule/Regex DLP만(P1), Fail-Closed는 시연 코드(P2), 로컬 AI 탐지는 제외 | 일정 |
+| 온프레미스·로컬 AI DLP | 4-6: 전면 적용 | Rule/Regex + AI 2차 탐지(SUH AI, 실패 시 Gemini에는 Rule 마스킹 텍스트만). 시연 연출 제외 | 일정 |
 | 관리자의 최종 공개 | 4-4: 관리자 | 승인자(`REVIEWER`)가 Approve와 Publish를 모두 한다 | 역할 단순화 |
 
 - 그 밖의 제외: Enterprise TRACE Search, Versioning UI, 대시보드, 알림, 음성, SSO, 멀티테넌시, 시드 로더 프로그램, 벡터 DB, Claim 단위 Evidence, 사용자 관리 화면. 사용자 지시 없이 구현하지 않는다.

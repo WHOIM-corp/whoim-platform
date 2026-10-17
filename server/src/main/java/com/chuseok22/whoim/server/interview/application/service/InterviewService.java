@@ -28,6 +28,9 @@ import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewT
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
 import com.chuseok22.whoim.server.member.core.constant.Position;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +52,7 @@ public class InterviewService {
   private final GapAnchorRepository gapAnchorRepository;
   private final HandoverPackageRepository handoverPackageRepository;
   private final LlmService llmService;
+  private final SettingConfigService settingConfigService;
   private final TraceStateCodec traceStateCodec;
   private final TraceExtractionValidator traceExtractionValidator;
   private final TransactionTemplate readTransaction;
@@ -61,6 +65,7 @@ public class InterviewService {
       GapAnchorRepository gapAnchorRepository,
       HandoverPackageRepository handoverPackageRepository,
       LlmService llmService,
+      SettingConfigService settingConfigService,
       TraceStateCodec traceStateCodec,
       TraceExtractionValidator traceExtractionValidator,
       PlatformTransactionManager transactionManager) {
@@ -70,6 +75,7 @@ public class InterviewService {
     this.gapAnchorRepository = gapAnchorRepository;
     this.handoverPackageRepository = handoverPackageRepository;
     this.llmService = llmService;
+    this.settingConfigService = settingConfigService;
     this.traceStateCodec = traceStateCodec;
     this.traceExtractionValidator = traceExtractionValidator;
     this.readTransaction = new TransactionTemplate(transactionManager);
@@ -126,7 +132,10 @@ public class InterviewService {
       throw new CustomException(ErrorCode.STATE_CONFLICT);
     }
     List<GapAnchor> anchors = gapAnchorRepository.findAllByGap(gap);
-    return new StartContext(gap.getId(), handoverPackage.getId(), InterviewPrompt.firstQuestion(gap, anchors));
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_INTERVIEW_FIRST_QUESTION, DefaultPromptInstructions.INTERVIEW_FIRST_QUESTION);
+    return new StartContext(
+        gap.getId(), handoverPackage.getId(), InterviewPrompt.firstQuestion(instruction, gap, anchors));
   }
 
   // 아직 Interview 행이 없어 잠글 수 없으므로 Package 행을 잠가 같은 Gap의 중복 시작을 막는다
@@ -175,8 +184,10 @@ public class InterviewService {
     TraceState state = traceStateCodec.read(interview.getTraceState());
     int remainingTurns = InterviewEndPolicy.MAX_ANSWERED_TURNS
         - (int) interviewTurnRepository.countByInterviewAndAnswerIsNotNull(interview);
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_INTERVIEW_TURN, DefaultPromptInstructions.INTERVIEW_TURN);
     LlmRequest request = InterviewPrompt.turn(
-        gap, anchors, state, pendingTurn.getQuestion(), pendingTurn.getAnswer(), remainingTurns);
+        instruction, gap, anchors, state, pendingTurn.getQuestion(), pendingTurn.getAnswer(), remainingTurns);
     return new PendingTurnContext(
         request,
         pendingTurn.getAnswer(),

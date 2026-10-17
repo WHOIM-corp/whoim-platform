@@ -3,7 +3,6 @@ package com.chuseok22.whoim.server.gap.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,12 +37,15 @@ import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -94,7 +96,9 @@ class GapAnalysisServiceTest {
     given(evidenceDocumentRepository.findAllByHandoverPackageOrderByCreatedAtAsc(handoverPackage)).willReturn(List.of(document));
     given(evidenceDocumentRepository.countByHandoverPackage(handoverPackage)).willReturn(1L);
     given(evidenceDocumentService.toAiInputText(document)).willReturn(document.getContent());
-    given(settingConfigService.getInt(anyString(), anyInt())).willReturn(20000);
+    given(settingConfigService.getString(any(SettingKey.class), anyString()))
+        .willAnswer(invocation -> invocation.getArgument(1));
+    given(settingConfigService.getInt(SettingKey.GAP_ANALYSIS_MAX_INPUT_CHARACTERS)).willReturn(20000);
     given(gapRepository.save(any(Gap.class))).willAnswer(invocation -> {
       Gap gap = invocation.getArgument(0);
       ReflectionTestUtils.setField(gap, "id", UUID.randomUUID());
@@ -121,8 +125,32 @@ class GapAnalysisServiceTest {
   }
 
   @Test
+  void analyze_usesDefaultInstructionWhenSettingIsAbsent() {
+    given(llmService.generate(any(LlmRequest.class), eq(GapAnalysisResult.class))).willReturn(resultOf(candidate("CHOICE_GAP", 2, 3)));
+
+    service.analyze(requesterOf(owner), handoverPackage.getId());
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(GapAnalysisResult.class));
+    assertThat(captor.getValue().system()).startsWith(DefaultPromptInstructions.GAP_ANALYSIS);
+  }
+
+  @Test
+  void analyze_usesConfiguredInstructionWhenSettingExists() {
+    given(settingConfigService.getString(SettingKey.PROMPT_GAP_ANALYSIS, DefaultPromptInstructions.GAP_ANALYSIS))
+        .willReturn("커스텀 지침");
+    given(llmService.generate(any(LlmRequest.class), eq(GapAnalysisResult.class))).willReturn(resultOf(candidate("CHOICE_GAP", 2, 3)));
+
+    service.analyze(requesterOf(owner), handoverPackage.getId());
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(GapAnalysisResult.class));
+    assertThat(captor.getValue().system()).startsWith("커스텀 지침").contains("JSON만 출력");
+  }
+
+  @Test
   void analyze_rejectsTooLargeInputWithoutCallingLlm() {
-    given(settingConfigService.getInt(anyString(), anyInt())).willReturn(10);
+    given(settingConfigService.getInt(SettingKey.GAP_ANALYSIS_MAX_INPUT_CHARACTERS)).willReturn(10);
 
     CustomException exception = analyzeAndCatch(requesterOf(owner));
 

@@ -3,6 +3,7 @@ package com.chuseok22.whoim.server.interview.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -36,6 +37,9 @@ import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewR
 import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewTurnRepository;
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
@@ -48,6 +52,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -77,6 +82,8 @@ class InterviewServiceTest {
   private HandoverPackageRepository handoverPackageRepository;
   @Mock
   private LlmService llmService;
+  @Mock
+  private SettingConfigService settingConfigService;
 
   private final CountingTransactionManager transactionManager = new CountingTransactionManager();
   private final TraceStateCodec codec = new TraceStateCodec(JsonMapper.builder().build());
@@ -92,7 +99,9 @@ class InterviewServiceTest {
   void setUp() {
     service = new InterviewService(
         interviewRepository, interviewTurnRepository, gapRepository, gapAnchorRepository, handoverPackageRepository,
-        llmService, codec, new TraceExtractionValidator(), transactionManager);
+        llmService, settingConfigService, codec, new TraceExtractionValidator(), transactionManager);
+    given(settingConfigService.getString(any(SettingKey.class), anyString()))
+        .willAnswer(invocation -> invocation.getArgument(1));
     owner = member("owner", Position.PREDECESSOR);
     handoverPackage = HandoverPackage.builder().predecessor(owner).name("package").build();
     ReflectionTestUtils.setField(handoverPackage, "id", UUID.randomUUID());
@@ -144,6 +153,28 @@ class InterviewServiceTest {
     assertThat(response.traceState()).isEmpty();
     assertThat(savedInterviews).hasSize(1);
     assertThat(savedTurns).hasSize(1);
+  }
+
+  @Test
+  void start_usesDefaultInstructionWhenSettingIsAbsent() {
+    service.start(requesterOf(owner), new InterviewStartRequest(gap.getId()));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(InterviewFirstQuestionResult.class));
+    assertThat(captor.getValue().system()).startsWith(DefaultPromptInstructions.INTERVIEW_FIRST_QUESTION);
+  }
+
+  @Test
+  void start_usesConfiguredInstructionWhenSettingExists() {
+    given(settingConfigService.getString(
+        SettingKey.PROMPT_INTERVIEW_FIRST_QUESTION, DefaultPromptInstructions.INTERVIEW_FIRST_QUESTION))
+        .willReturn("커스텀 지침");
+
+    service.start(requesterOf(owner), new InterviewStartRequest(gap.getId()));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(InterviewFirstQuestionResult.class));
+    assertThat(captor.getValue().system()).startsWith("커스텀 지침").contains("JSON만 출력");
   }
 
   @Test
@@ -242,6 +273,34 @@ class InterviewServiceTest {
     assertThat(response.turns().get(1).turnNumber()).isEqualTo(2);
     assertThat(response.traceState().get(TraceElement.CAUSE).status()).isEqualTo(TraceElementStatus.FILLED);
     assertThat(response.traceState().get(TraceElement.CAUSE).source()).isEqualTo(EvidenceLinkType.DIRECT);
+  }
+
+  @Test
+  void submitAnswer_usesDefaultInstructionWhenSettingIsAbsent() {
+    Interview interview = startInterview();
+    given(llmService.generate(any(LlmRequest.class), eq(InterviewTurnResult.class))).willReturn(
+        turnResult("다음 질문", filled(TraceElement.CAUSE, "트래픽 급증", "DIRECT", "트래픽이 몰려")));
+
+    service.submitAnswer(requesterOf(owner), interview.getId(), answerOf(ANSWER));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(InterviewTurnResult.class));
+    assertThat(captor.getValue().system()).startsWith(DefaultPromptInstructions.INTERVIEW_TURN);
+  }
+
+  @Test
+  void submitAnswer_usesConfiguredInstructionWhenSettingExists() {
+    Interview interview = startInterview();
+    given(settingConfigService.getString(SettingKey.PROMPT_INTERVIEW_TURN, DefaultPromptInstructions.INTERVIEW_TURN))
+        .willReturn("커스텀 지침");
+    given(llmService.generate(any(LlmRequest.class), eq(InterviewTurnResult.class))).willReturn(
+        turnResult("다음 질문", filled(TraceElement.CAUSE, "트래픽 급증", "DIRECT", "트래픽이 몰려")));
+
+    service.submitAnswer(requesterOf(owner), interview.getId(), answerOf(ANSWER));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(InterviewTurnResult.class));
+    assertThat(captor.getValue().system()).startsWith("커스텀 지침").contains("JSON만 출력");
   }
 
   @Test

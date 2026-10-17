@@ -83,7 +83,7 @@ public class EvidenceDocumentService {
     return EvidenceDocumentDetailResponse.from(document);
   }
 
-  // #24 DLP 적용 지점: AI에 보내는 문서 텍스트는 반드시 이 메서드를 거친다
+  // DLP는 LlmService에서 모든 생성 입력에 일괄 적용된다
   public String toAiInputText(EvidenceDocument document) {
     return document.getContent();
   }

@@ -32,4 +32,8 @@ public class SettingConfig extends BaseEntity {
     this.configKey = configKey;
     this.configValue = configValue;
   }
+
+  public void changeValue(String configValue) {
+    this.configValue = configValue;
+  }
 }

@@ -32,6 +32,9 @@ import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewT
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
 import com.chuseok22.whoim.server.member.core.constant.Position;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -59,6 +62,7 @@ public class CardService {
   private final CardEvidenceLinkRepository cardEvidenceLinkRepository;
   private final CardStateHistoryRepository cardStateHistoryRepository;
   private final LlmService llmService;
+  private final SettingConfigService settingConfigService;
   private final TraceStateCodec traceStateCodec;
   private final TransactionTemplate readTransaction;
   private final TransactionTemplate writeTransaction;
@@ -71,6 +75,7 @@ public class CardService {
       CardEvidenceLinkRepository cardEvidenceLinkRepository,
       CardStateHistoryRepository cardStateHistoryRepository,
       LlmService llmService,
+      SettingConfigService settingConfigService,
       TraceStateCodec traceStateCodec,
       PlatformTransactionManager transactionManager) {
     this.interviewRepository = interviewRepository;
@@ -80,6 +85,7 @@ public class CardService {
     this.cardEvidenceLinkRepository = cardEvidenceLinkRepository;
     this.cardStateHistoryRepository = cardStateHistoryRepository;
     this.llmService = llmService;
+    this.settingConfigService = settingConfigService;
     this.traceStateCodec = traceStateCodec;
     this.readTransaction = new TransactionTemplate(transactionManager);
     this.readTransaction.setReadOnly(true);
@@ -111,7 +117,9 @@ public class CardService {
       throw new CustomException(ErrorCode.STATE_CONFLICT);
     }
     List<InterviewTurn> turns = interviewTurnRepository.findAllByInterviewOrderByTurnNumberAsc(interview);
-    return CardGenerationPrompt.build(interview.getGap(), state, turns);
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_CARD_GENERATION, DefaultPromptInstructions.CARD_GENERATION);
+    return CardGenerationPrompt.build(instruction, interview.getGap(), state, turns);
   }
 
   // 잠금 후 재검증: 같은 인터뷰의 Card 중복 생성을 막는다. 유효한 DIRECT 근거가 없으면 아무것도 저장하지 않고 503으로 롤백한다

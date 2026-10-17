@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,9 @@ import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewR
 import com.chuseok22.whoim.server.interview.infrastructure.repository.InterviewTurnRepository;
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
@@ -58,6 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -90,6 +95,8 @@ class CardServiceTest {
   private CardStateHistoryRepository cardStateHistoryRepository;
   @Mock
   private LlmService llmService;
+  @Mock
+  private SettingConfigService settingConfigService;
 
   private final CountingTransactionManager transactionManager = new CountingTransactionManager();
   private final TraceStateCodec codec = new TraceStateCodec(JsonMapper.builder().build());
@@ -112,7 +119,9 @@ class CardServiceTest {
   void setUp() {
     service = new CardService(
         interviewRepository, interviewTurnRepository, gapAnchorRepository, traceCardRepository,
-        cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, codec, transactionManager);
+        cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, settingConfigService, codec, transactionManager);
+    given(settingConfigService.getString(any(SettingKey.class), anyString()))
+        .willAnswer(invocation -> invocation.getArgument(1));
     owner = member("owner", Position.PREDECESSOR);
     handoverPackage = HandoverPackage.builder().predecessor(owner).name("package").build();
     ReflectionTestUtils.setField(handoverPackage, "id", UUID.randomUUID());
@@ -167,6 +176,27 @@ class CardServiceTest {
       openTransactionsDuringLlm = transactionManager.openTransactions();
       return resultWith(new DirectEvidenceCandidate(1, "재시도를 5회로 정했습니다"));
     });
+  }
+
+  @Test
+  void create_usesDefaultInstructionWhenSettingIsAbsent() {
+    service.create(requesterOf(owner), interview.getId());
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(CardGenerationResult.class));
+    assertThat(captor.getValue().system()).startsWith(DefaultPromptInstructions.CARD_GENERATION);
+  }
+
+  @Test
+  void create_usesConfiguredInstructionWhenSettingExists() {
+    given(settingConfigService.getString(SettingKey.PROMPT_CARD_GENERATION, DefaultPromptInstructions.CARD_GENERATION))
+        .willReturn("커스텀 지침");
+
+    service.create(requesterOf(owner), interview.getId());
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(CardGenerationResult.class));
+    assertThat(captor.getValue().system()).startsWith("커스텀 지침").contains("JSON만 출력");
   }
 
   @Test

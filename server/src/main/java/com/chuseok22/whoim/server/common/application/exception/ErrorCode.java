@@ -36,7 +36,14 @@ public enum ErrorCode {
   GAP_ANALYSIS_INPUT_TOO_LARGE(HttpStatus.BAD_REQUEST, "분석할 문서 분량이 상한을 초과했습니다"),
 
   // LLM
-  LLM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 응답을 가져올 수 없습니다");
+  LLM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 응답을 가져올 수 없습니다"),
+
+  // DLP
+  DLP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "민감정보 검사를 완료할 수 없어 요청을 처리하지 못했습니다"),
+
+  // Setting
+  SETTING_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 설정 키입니다"),
+  SETTING_VALUE_INVALID(HttpStatus.BAD_REQUEST, "설정 값이 올바르지 않습니다");
 
   private final HttpStatus httpStatus;
   private final String message;
