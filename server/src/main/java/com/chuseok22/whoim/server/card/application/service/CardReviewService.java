@@ -1,6 +1,7 @@
 package com.chuseok22.whoim.server.card.application.service;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.application.dto.request.CardRejectRequest;
 import com.chuseok22.whoim.server.card.application.dto.response.CardDetailResponse;
 import com.chuseok22.whoim.server.card.application.dto.response.CardSummaryResponse;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
@@ -71,7 +72,7 @@ public class CardReviewService {
     TraceCard card = findCard(cardId);
     validateOwner(requester, card);
     validatePackageWriting(card);
-    return transition(card, findMember(requester), card.getStatus(), TraceCard::confirmByPredecessor);
+    return transition(card, findMember(requester), card.getStatus(), null, TraceCard::confirmByPredecessor);
   }
 
   // 검증 순서: Card(404) -> Package 상태(409) -> 근거(409) -> 전이(409)
@@ -82,17 +83,26 @@ public class CardReviewService {
     if (!cardEvidenceLinkRepository.existsByCard(card)) {
       throw new CustomException(ErrorCode.STATE_CONFLICT);
     }
-    return transition(card, findMember(requester), card.getStatus(), TraceCard::approve);
+    return transition(card, findMember(requester), card.getStatus(), null, TraceCard::approve);
+  }
+
+  // 검증 순서: Card(404) -> Package 상태(409) -> 전이(409). 사유는 상태 이력에 남는다
+  @Transactional
+  public CardDetailResponse reject(AuthenticatedMember requester, UUID cardId, CardRejectRequest request) {
+    TraceCard card = findCard(cardId);
+    validatePackageWriting(card);
+    return transition(card, findMember(requester), card.getStatus(), request.reason(), TraceCard::reject);
   }
 
   private CardDetailResponse transition(
-      TraceCard card, Member actor, CardStatus fromStatus, Consumer<TraceCard> change) {
+      TraceCard card, Member actor, CardStatus fromStatus, String reason, Consumer<TraceCard> change) {
     change.accept(card);
     cardStateHistoryRepository.save(CardStateHistory.builder()
         .card(card)
         .fromStatus(fromStatus)
         .toStatus(card.getStatus())
         .actor(actor)
+        .reason(reason)
         .build());
     return toDetail(card);
   }
