@@ -1,14 +1,36 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-16T15:35:41Z",
-    "currentVersion": "0.6.0",
+    "lastUpdated": "2026-10-17T05:19:40Z",
+    "currentVersion": "0.7.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 9
+    "totalReleases": 10
   },
   "releases": [
+    {
+      "version": "0.7.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-17",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 근거가 연결된 TRACE Card 생성 API 추가\n- Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 인터뷰 세션과 턴 처리 API 추가\n- Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 문서 줄 번호 기반 Gap 분석과 Gap 목록 API 추가\n- Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — Package 생성과 후임자 지정, 회원 조회 API 추가",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 근거가 연결된 TRACE Card 생성 API 추가",
+            "Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 인터뷰 세션과 턴 처리 API 추가",
+            "Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — 문서 줄 번호 기반 Gap 분석과 Gap 목록 API 추가",
+            "Gap_탐지_인터뷰_Card_생성_서버_API_묶음 — Package 생성과 후임자 지정, 회원 조회 API 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.6.0",
       "project_types": [
