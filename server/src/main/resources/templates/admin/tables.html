@@ -1,0 +1,45 @@
+<!doctype html>
+<html th:replace="~{admin/fragments/shell :: shell('테이블 목록', ~{::main}, 'tables')}" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>테이블 목록</title>
+</head>
+<body>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1>테이블 목록</h1>
+      <p>DB에 접속하지 않고 서비스 데이터를 확인합니다. 설정 값만 수정할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>테이블</th><th>설명</th><th>함께 보이는 하위 데이터</th><th style="text-align:right">행 수</th><th>마지막 생성</th></tr>
+        </thead>
+        <tbody>
+          <tr class="hover" th:each="table : ${tables}">
+            <td><a class="link link-primary mono" th:href="@{/api/admin/tables/{tableName}(tableName=${table.tableName})}" th:text="${table.tableName}">member</a></td>
+            <td th:text="${table.description}">설명</td>
+            <td class="muted" th:text="${table.childrenNote}">-</td>
+            <td style="text-align:right" th:text="${table.rowCount}">0</td>
+            <td class="mono" th:text="${table.lastCreatedAt.empty} ? '-' : ${table.lastCreatedAt.text}">-</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>서비스 설정</h2>
+      <a class="btn btn-sm btn-primary" th:href="@{/api/admin/settings}">설정 편집</a>
+    </div>
+    <div class="panel-body">
+      <p style="margin:0">LLM 모델·temperature, Gap 입력 한도, 프롬프트 5종, DLP 엔티티 사전 4종 (총 <span th:text="${sidebar.settingCount}">14</span>개 키)을 수정합니다. 기본값과 다르게 저장된 키는 <strong th:text="|${overriddenSettingCount}개|">0개</strong>입니다.</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

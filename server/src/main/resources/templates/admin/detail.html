@@ -1,0 +1,81 @@
+<!doctype html>
+<html th:replace="~{admin/fragments/shell :: shell(|${detail.tableName} 상세|, ~{::main}, ${detail.tableName})}" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>상세</title>
+</head>
+<body>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <div class="crumbs">
+        <a th:href="@{/api/admin/tables}">테이블 목록</a> /
+        <a th:href="@{/api/admin/tables/{tableName}(tableName=${detail.tableName})}" th:text="${detail.tableName}">table</a> /
+        <span th:text="${#strings.substring(detail.id.toString(), 0, 8)}">0f3a9c21</span>
+      </div>
+      <h1 th:text="|${detail.tableName} 상세|">상세</h1>
+      <p class="mono" th:text="${detail.id}">id</p>
+    </div>
+    <a class="btn btn-sm" th:href="@{/api/admin/tables/{tableName}(tableName=${detail.tableName})}">목록으로</a>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2>기본 정보</h2></div>
+    <div class="kv">
+      <th:block th:each="field : ${detail.fields}">
+        <div th:text="${field.label}">label</div>
+        <div>
+          <th:block th:if="${field.value.empty}"><span class="muted">-</span></th:block>
+          <th:block th:unless="${field.value.empty}">
+            <a class="fk" th:if="${field.value.hasLink()}"
+               th:href="@{/api/admin/tables/{tableName}/{id}(tableName=${field.value.linkTableName},id=${field.value.linkId})}"
+               th:text="${field.value.linkId}">id</a>
+            <span class="badge badge-soft" th:if="${!field.value.hasLink() and field.value.badge != null}" th:text="${field.value.badge}">BADGE</span>
+            <pre class="fulltext" th:if="${!field.value.hasLink() and field.value.badge == null}" th:text="${field.value.text}">값</pre>
+          </th:block>
+        </div>
+      </th:block>
+    </div>
+  </section>
+
+  <section class="panel" th:each="section : ${detail.sections}">
+    <div class="panel-head">
+      <h2 th:text="${section.title}">섹션</h2>
+      <span class="muted" th:text="|${section.rows.size()}건|">0건</span>
+    </div>
+
+    <div class="table-wrap" th:if="${section.kind == 'TABLE'}">
+      <table class="table">
+        <thead>
+          <tr><th th:each="column : ${section.columns}" th:text="${column}">column</th></tr>
+        </thead>
+        <tbody>
+          <tr class="hover" th:each="row : ${section.rows}">
+            <td th:each="cell : ${row.cells}">
+              <th:block th:if="${cell.empty}"><span class="muted">-</span></th:block>
+              <th:block th:unless="${cell.empty}">
+                <a class="fk" th:if="${cell.hasLink()}"
+                   th:href="@{/api/admin/tables/{tableName}/{id}(tableName=${cell.linkTableName},id=${cell.linkId})}"
+                   th:text="${cell.text}">0f3a9c21</a>
+                <span class="badge badge-soft" th:if="${!cell.hasLink() and cell.badge != null}" th:text="${cell.badge}">BADGE</span>
+                <span th:if="${!cell.hasLink() and cell.badge == null}" th:text="${cell.text}">값</span>
+              </th:block>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <th:block th:if="${section.kind == 'CONVERSATION'}">
+      <div class="turn" th:each="row : ${section.rows}">
+        <div class="no" th:text="${row.cells[0].text}">TURN 1</div>
+        <div class="q"><span class="label">질문</span><div class="fulltext" th:text="${row.cells[1].text}">질문</div></div>
+        <div class="a"><span class="label">답변</span><div class="fulltext" th:text="${row.cells[2].text}">답변</div></div>
+        <div class="t"><span class="label">추출</span>
+          <div class="body mono fulltext" th:classappend="${row.cells[3].empty} ? 'muted'" th:text="${row.cells[3].empty} ? '-' : ${row.cells[3].text}">추출</div>
+        </div>
+      </div>
+    </th:block>
+  </section>
+</main>
+</body>
+</html>
