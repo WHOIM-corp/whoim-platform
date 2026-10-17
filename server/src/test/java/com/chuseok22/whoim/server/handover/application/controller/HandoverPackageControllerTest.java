@@ -17,6 +17,7 @@ import com.chuseok22.whoim.server.auth.infrastructure.config.JwtProvider;
 import com.chuseok22.whoim.server.auth.infrastructure.config.SecurityConfig;
 import com.chuseok22.whoim.server.common.application.exception.GlobalExceptionHandler;
 import com.chuseok22.whoim.server.handover.application.dto.response.HandoverPackageResponse;
+import com.chuseok22.whoim.server.handover.application.dto.response.HandoverProgressResponse;
 import com.chuseok22.whoim.server.handover.application.service.HandoverPackageService;
 import com.chuseok22.whoim.server.handover.core.constant.HandoverStatus;
 import com.chuseok22.whoim.server.member.application.dto.response.MemberResponse;
@@ -137,6 +138,37 @@ class HandoverPackageControllerTest {
         .andExpect(status().isForbidden());
   }
 
+  @Test
+  void publish_asReviewer_returns200() throws Exception {
+    UUID packageId = UUID.randomUUID();
+    given(handoverPackageService.publish(any(), eq(packageId))).willReturn(response());
+
+    mockMvc.perform(post(BASE_URL + "/" + packageId + "/publish")
+            .header(HttpHeaders.AUTHORIZATION, bearer(Position.REVIEWER)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void publish_otherPositions_returns403() throws Exception {
+    String url = BASE_URL + "/" + UUID.randomUUID() + "/publish";
+
+    for (Position position : List.of(Position.PREDECESSOR, Position.SUCCESSOR)) {
+      mockMvc.perform(post(url).header(HttpHeaders.AUTHORIZATION, bearer(position)))
+          .andExpect(status().isForbidden());
+    }
+    String adminToken = "Bearer " + jwtProvider.issue(
+        new AuthenticatedMember(UUID.randomUUID(), "probe-admin", Role.ADMIN, null));
+    mockMvc.perform(post(url).header(HttpHeaders.AUTHORIZATION, adminToken))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(handoverPackageService);
+  }
+
+  @Test
+  void publish_withoutToken_returns401() throws Exception {
+    mockMvc.perform(post(BASE_URL + "/" + UUID.randomUUID() + "/publish"))
+        .andExpect(status().isUnauthorized());
+  }
+
   private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder createRequest(
       Position position, String body) {
     return post(BASE_URL)
@@ -152,7 +184,8 @@ class HandoverPackageControllerTest {
   private HandoverPackageResponse response() {
     return new HandoverPackageResponse(UUID.randomUUID(), "인수인계", null, HandoverStatus.WRITING,
         new MemberResponse(UUID.randomUUID(), "predecessor", "전임자", Role.USER, Position.PREDECESSOR), null,
-        OffsetDateTime.of(2026, 10, 17, 9, 0, 0, 0, ZoneOffset.ofHours(9)));
+        new HandoverProgressResponse(0, 0, 0.0), List.of(),
+        OffsetDateTime.of(2026, 10, 17, 9, 0, 0, 0, ZoneOffset.ofHours(9)), null);
   }
 
   private String bearer(Position position) {

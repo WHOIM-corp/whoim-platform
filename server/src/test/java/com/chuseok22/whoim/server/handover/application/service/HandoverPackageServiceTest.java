@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.core.constant.CardStatus;
+import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
+import com.chuseok22.whoim.server.card.infrastructure.repository.TraceCardRepository;
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import com.chuseok22.whoim.server.handover.application.dto.request.HandoverPackageCreateRequest;
@@ -20,6 +25,9 @@ import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import com.chuseok22.whoim.server.member.infrastructure.repository.MemberRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +46,10 @@ class HandoverPackageServiceTest {
   private HandoverPackageRepository handoverPackageRepository;
   @Mock
   private MemberRepository memberRepository;
+  @Mock
+  private TraceCardRepository traceCardRepository;
+
+  private static final Instant NOW = Instant.parse("2026-10-17T00:00:00Z");
 
   private HandoverPackageService service;
 
@@ -47,7 +59,8 @@ class HandoverPackageServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new HandoverPackageService(handoverPackageRepository, memberRepository);
+    service = new HandoverPackageService(
+        handoverPackageRepository, memberRepository, traceCardRepository, Clock.fixed(NOW, ZoneOffset.UTC));
     predecessor = givenMember("predecessor", Position.PREDECESSOR);
     successor = givenMember("successor", Position.SUCCESSOR);
     reviewer = givenMember("reviewer", Position.REVIEWER);
@@ -216,6 +229,146 @@ class HandoverPackageServiceTest {
 
     assertThat(errorCodeOf(() -> service.get(requesterOf(reviewer), unknownId)))
         .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+  }
+
+  @Test
+  void list_includesProgressGroupedByPackage_withSingleCardQuery() {
+    HandoverPackage first = givenPackage(predecessor);
+    HandoverPackage second = givenPackage(predecessor);
+    given(handoverPackageRepository.findAllByOrderByCreatedAtDesc()).willReturn(List.of(first, second));
+    given(traceCardRepository.findAllByHandoverPackageIn(List.of(first, second))).willReturn(List.of(
+        givenCard(first, CardStatus.APPROVED), givenCard(first, CardStatus.DRAFT),
+        givenCard(first, CardStatus.REJECTED)));
+
+    List<HandoverPackageResponse> responses = service.list(requesterOf(reviewer));
+
+    assertThat(responses.get(0).progress().approvedCount()).isEqualTo(1);
+    assertThat(responses.get(0).progress().activeCount()).isEqualTo(2);
+    assertThat(responses.get(0).progress().ratio()).isEqualTo(0.5);
+    assertThat(responses.get(0).cards()).hasSize(3);
+    assertThat(responses.get(1).progress().activeCount()).isZero();
+    assertThat(responses.get(1).progress().ratio()).isZero();
+    assertThat(responses.get(1).cards()).isEmpty();
+  }
+
+  @Test
+  void list_emptyPackages_skipsCardQuery() {
+    given(handoverPackageRepository.findAllByOrderByCreatedAtDesc()).willReturn(List.of());
+
+    assertThat(service.list(requesterOf(reviewer))).isEmpty();
+
+    verifyNoInteractions(traceCardRepository);
+  }
+
+  @Test
+  void get_includesProgressAndCards() {
+    HandoverPackage handoverPackage = givenPackage(predecessor);
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(
+        givenCard(handoverPackage, CardStatus.APPROVED), givenCard(handoverPackage, CardStatus.APPROVED),
+        givenCard(handoverPackage, CardStatus.PREDECESSOR_CONFIRMED)));
+
+    HandoverPackageResponse response = service.get(requesterOf(reviewer), handoverPackage.getId());
+
+    assertThat(response.progress().approvedCount()).isEqualTo(2);
+    assertThat(response.progress().activeCount()).isEqualTo(3);
+    assertThat(response.cards()).hasSize(3);
+    assertThat(response.publishedAt()).isNull();
+  }
+
+  @Test
+  void publish_success() {
+    HandoverPackage handoverPackage = givenPackageWithSuccessor();
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(
+        givenCard(handoverPackage, CardStatus.APPROVED), givenCard(handoverPackage, CardStatus.REJECTED)));
+    given(memberRepository.findById(reviewer.getId())).willReturn(Optional.of(reviewer));
+
+    HandoverPackageResponse response = service.publish(requesterOf(reviewer), handoverPackage.getId());
+
+    assertThat(response.status()).isEqualTo(HandoverStatus.PUBLISHED);
+    assertThat(response.publishedAt().toInstant()).isEqualTo(NOW);
+    assertThat(handoverPackage.getPublishedBy()).isSameAs(reviewer);
+    assertThat(handoverPackage.getPublishedAt()).isEqualTo(NOW);
+  }
+
+  @Test
+  void publish_rejectsPackageWithoutSuccessor() {
+    HandoverPackage handoverPackage = givenPackage(predecessor);
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+
+    assertThat(errorCodeOf(() -> service.publish(requesterOf(reviewer), handoverPackage.getId())))
+        .isEqualTo(ErrorCode.STATE_CONFLICT);
+    assertThat(handoverPackage.getStatus()).isEqualTo(HandoverStatus.WRITING);
+  }
+
+  @Test
+  void publish_rejectsUnapprovedCard() {
+    HandoverPackage handoverPackage = givenPackageWithSuccessor();
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(
+        givenCard(handoverPackage, CardStatus.APPROVED), givenCard(handoverPackage, CardStatus.PREDECESSOR_CONFIRMED)));
+
+    assertThat(errorCodeOf(() -> service.publish(requesterOf(reviewer), handoverPackage.getId())))
+        .isEqualTo(ErrorCode.STATE_CONFLICT);
+    assertThat(handoverPackage.getStatus()).isEqualTo(HandoverStatus.WRITING);
+  }
+
+  @Test
+  void publish_rejectsZeroActiveCards() {
+    HandoverPackage handoverPackage = givenPackageWithSuccessor();
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage))
+        .willReturn(List.of(givenCard(handoverPackage, CardStatus.REJECTED)));
+
+    assertThat(errorCodeOf(() -> service.publish(requesterOf(reviewer), handoverPackage.getId())))
+        .isEqualTo(ErrorCode.STATE_CONFLICT);
+    assertThat(handoverPackage.getStatus()).isEqualTo(HandoverStatus.WRITING);
+  }
+
+  @Test
+  void publish_rejectsAlreadyPublished() {
+    HandoverPackage handoverPackage = givenPackageWithSuccessor();
+    ReflectionTestUtils.setField(handoverPackage, "status", HandoverStatus.PUBLISHED);
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+
+    assertThat(errorCodeOf(() -> service.publish(requesterOf(reviewer), handoverPackage.getId())))
+        .isEqualTo(ErrorCode.STATE_CONFLICT);
+    verify(traceCardRepository, never()).findAllByHandoverPackage(any());
+  }
+
+  @Test
+  void publish_unknownPackage() {
+    UUID unknownId = UUID.randomUUID();
+    given(handoverPackageRepository.findById(unknownId)).willReturn(Optional.empty());
+
+    assertThat(errorCodeOf(() -> service.publish(requesterOf(reviewer), unknownId)))
+        .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+  }
+
+  @Test
+  void handoverPackagePublish_setsFieldsAndRejectsSecondPublish() {
+    HandoverPackage handoverPackage = givenPackageWithSuccessor();
+
+    handoverPackage.publish(reviewer, NOW);
+
+    assertThat(handoverPackage.getStatus()).isEqualTo(HandoverStatus.PUBLISHED);
+    assertThat(handoverPackage.getPublishedAt()).isEqualTo(NOW);
+    assertThat(handoverPackage.getPublishedBy()).isSameAs(reviewer);
+    assertThat(errorCodeOf(() -> handoverPackage.publish(reviewer, NOW))).isEqualTo(ErrorCode.STATE_CONFLICT);
+  }
+
+  private HandoverPackage givenPackageWithSuccessor() {
+    HandoverPackage created = givenPackage(predecessor);
+    created.assignSuccessor(successor);
+    return created;
+  }
+
+  private static TraceCard givenCard(HandoverPackage handoverPackage, CardStatus status) {
+    TraceCard card = TraceCard.builder().handoverPackage(handoverPackage).title("card").build();
+    ReflectionTestUtils.setField(card, "id", UUID.randomUUID());
+    ReflectionTestUtils.setField(card, "status", status);
+    return card;
   }
 
   private static ErrorCode errorCodeOf(Runnable action) {
