@@ -31,6 +31,10 @@ public enum ErrorCode {
   EVIDENCE_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "파일 크기가 허용 범위를 초과했습니다"),
   EVIDENCE_EXCERPT_RANGE_INVALID(HttpStatus.BAD_REQUEST, "발췌 범위가 올바르지 않습니다"),
 
+  // Gap
+  GAP_ANALYSIS_NO_DOCUMENTS(HttpStatus.BAD_REQUEST, "분석할 문서가 없습니다"),
+  GAP_ANALYSIS_INPUT_TOO_LARGE(HttpStatus.BAD_REQUEST, "분석할 문서 분량이 상한을 초과했습니다"),
+
   // LLM
   LLM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 응답을 가져올 수 없습니다");
 

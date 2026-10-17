@@ -18,6 +18,8 @@ class SettingConfigServiceTest {
   private static final String MODEL_KEY = "llm.suh-ai.model";
   private static final String TEMPERATURE_KEY = "llm.suh-ai.temperature";
 
+  private static final String MAX_INPUT_KEY = "gap.analysis.max-input-characters";
+
   @Mock
   private SettingConfigRepository settingConfigRepository;
 
@@ -64,6 +66,34 @@ class SettingConfigServiceTest {
     when(settingConfigRepository.findByConfigKey(TEMPERATURE_KEY)).thenReturn(Optional.of(config(TEMPERATURE_KEY, "abc")));
 
     assertThat(settingConfigService.getDouble(TEMPERATURE_KEY, 0.2)).isEqualTo(0.2);
+  }
+
+  @Test
+  void getInt_returnsStoredValue() {
+    when(settingConfigRepository.findByConfigKey(MAX_INPUT_KEY)).thenReturn(Optional.of(config(MAX_INPUT_KEY, "30000")));
+
+    assertThat(settingConfigService.getInt(MAX_INPUT_KEY, 20000)).isEqualTo(30000);
+  }
+
+  @Test
+  void getInt_returnsDefaultWhenMissing() {
+    when(settingConfigRepository.findByConfigKey(MAX_INPUT_KEY)).thenReturn(Optional.empty());
+
+    assertThat(settingConfigService.getInt(MAX_INPUT_KEY, 20000)).isEqualTo(20000);
+  }
+
+  @Test
+  void getInt_returnsDefaultWhenNotNumber() {
+    when(settingConfigRepository.findByConfigKey(MAX_INPUT_KEY)).thenReturn(Optional.of(config(MAX_INPUT_KEY, "abc")));
+
+    assertThat(settingConfigService.getInt(MAX_INPUT_KEY, 20000)).isEqualTo(20000);
+  }
+
+  @Test
+  void getInt_returnsDefaultWhenBlank() {
+    when(settingConfigRepository.findByConfigKey(MAX_INPUT_KEY)).thenReturn(Optional.of(config(MAX_INPUT_KEY, "  ")));
+
+    assertThat(settingConfigService.getInt(MAX_INPUT_KEY, 20000)).isEqualTo(20000);
   }
 
   private static SettingConfig config(String key, String value) {

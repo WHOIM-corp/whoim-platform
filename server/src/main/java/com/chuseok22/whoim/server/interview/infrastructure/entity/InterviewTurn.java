@@ -45,4 +45,12 @@ public class InterviewTurn extends BaseEntity {
     this.turnNumber = turnNumber;
     this.question = question;
   }
+
+  public void recordAnswer(String answer) {
+    this.answer = answer;
+  }
+
+  public void recordExtraction(String extractedTraceJson) {
+    this.extractedTrace = extractedTraceJson;
+  }
 }

@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EvidenceDocumentRepository extends JpaRepository<EvidenceDocument, UUID> {
 
   List<EvidenceDocument> findAllByHandoverPackageOrderByCreatedAtAsc(HandoverPackage handoverPackage);
+
+  long countByHandoverPackage(HandoverPackage handoverPackage);
 }

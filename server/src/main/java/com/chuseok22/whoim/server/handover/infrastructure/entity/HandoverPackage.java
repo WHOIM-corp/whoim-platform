@@ -58,4 +58,9 @@ public class HandoverPackage extends BaseEntity {
     this.description = description;
     this.status = HandoverStatus.WRITING;
   }
+
+  // successor가 null이면 지정을 해제한다
+  public void assignSuccessor(Member successor) {
+    this.successor = successor;
+  }
 }
