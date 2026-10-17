@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T07:30:41Z",
-    "currentVersion": "0.9.0",
+    "lastUpdated": "2026-10-17T14:50:24Z",
+    "currentVersion": "0.10.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 12
+    "totalReleases": 13
   },
   "releases": [
+    {
+      "version": "0.10.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-17",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- Gemini_fallback과_Rule_AI_DLP_도입 — DLP 엔티티 사전을 setting_config에서 동적으로 관리\n- Gemini_fallback과_Rule_AI_DLP_도입 — Rule과 AI 2차 탐지 DLP 마스킹과 응답 복원 추가\n- Gemini_fallback과_Rule_AI_DLP_도입 — Gemini 어댑터와 LlmChain 추가, 생성을 Gemini로 전환\n- Gemini_fallback과_Rule_AI_DLP_도입 — 프롬프트 지침과 출력 형식을 분리하고 지침을 설정에서 읽기\n- Gemini_fallback과_Rule_AI_DLP_도입 — 설정 키 레지스트리와 ADMIN 설정 관리 API 추가\n\n### 📝 문서\n- Gemini 생성과 DLP 구조에 맞춰 규칙 문서 정정",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "Gemini_fallback과_Rule_AI_DLP_도입 — DLP 엔티티 사전을 setting_config에서 동적으로 관리",
+            "Gemini_fallback과_Rule_AI_DLP_도입 — Rule과 AI 2차 탐지 DLP 마스킹과 응답 복원 추가",
+            "Gemini_fallback과_Rule_AI_DLP_도입 — Gemini 어댑터와 LlmChain 추가, 생성을 Gemini로 전환",
+            "Gemini_fallback과_Rule_AI_DLP_도입 — 프롬프트 지침과 출력 형식을 분리하고 지침을 설정에서 읽기",
+            "Gemini_fallback과_Rule_AI_DLP_도입 — 설정 키 레지스트리와 ADMIN 설정 관리 API 추가"
+          ]
+        },
+        "docs": {
+          "title": "📝 문서",
+          "items": [
+            "Gemini 생성과 DLP 구조에 맞춰 규칙 문서 정정"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.9.0",
       "project_types": [

@@ -1,7 +1,21 @@
 # Changelog
 
-**현재 버전:** 0.9.0  
-**마지막 업데이트:** 2026-10-17T07:30:41Z  
+**현재 버전:** 0.10.0  
+**마지막 업데이트:** 2026-10-17T14:50:24Z  
+
+---
+
+## [0.10.0] - 2026-10-17
+
+**✨ 기능**
+- Gemini_fallback과_Rule_AI_DLP_도입 — DLP 엔티티 사전을 setting_config에서 동적으로 관리
+- Gemini_fallback과_Rule_AI_DLP_도입 — Rule과 AI 2차 탐지 DLP 마스킹과 응답 복원 추가
+- Gemini_fallback과_Rule_AI_DLP_도입 — Gemini 어댑터와 LlmChain 추가, 생성을 Gemini로 전환
+- Gemini_fallback과_Rule_AI_DLP_도입 — 프롬프트 지침과 출력 형식을 분리하고 지침을 설정에서 읽기
+- Gemini_fallback과_Rule_AI_DLP_도입 — 설정 키 레지스트리와 ADMIN 설정 관리 API 추가
+
+**📝 문서**
+- Gemini 생성과 DLP 구조에 맞춰 규칙 문서 정정
 
 ---
 
