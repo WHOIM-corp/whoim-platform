@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.application.dto.request.CardRejectRequest;
 import com.chuseok22.whoim.server.card.application.dto.response.CardDetailResponse;
 import com.chuseok22.whoim.server.card.application.dto.response.CardSummaryResponse;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
@@ -189,6 +190,78 @@ class CardReviewServiceTest {
     given(traceCardRepository.findById(unknownId)).willReturn(Optional.empty());
 
     assertErrorCode(ErrorCode.RESOURCE_NOT_FOUND, () -> service.approve(requesterOf(reviewer), unknownId));
+  }
+
+  @Test
+  void reject_movesConfirmedAndSavesHistoryWithReason() {
+    TraceCard card = givenCard(CardStatus.PREDECESSOR_CONFIRMED);
+    given(traceCardRepository.findById(card.getId())).willReturn(Optional.of(card));
+    given(memberRepository.findById(reviewer.getId())).willReturn(Optional.of(reviewer));
+
+    CardDetailResponse response = service.reject(
+        requesterOf(reviewer), card.getId(), new CardRejectRequest("근거가 부족합니다"));
+
+    assertThat(card.getStatus()).isEqualTo(CardStatus.REJECTED);
+    assertThat(response.status()).isEqualTo(CardStatus.REJECTED);
+    ArgumentCaptor<CardStateHistory> captor = ArgumentCaptor.forClass(CardStateHistory.class);
+    verify(cardStateHistoryRepository).save(captor.capture());
+    assertThat(captor.getValue().getFromStatus()).isEqualTo(CardStatus.PREDECESSOR_CONFIRMED);
+    assertThat(captor.getValue().getToStatus()).isEqualTo(CardStatus.REJECTED);
+    assertThat(captor.getValue().getActor()).isSameAs(reviewer);
+    assertThat(captor.getValue().getReason()).isEqualTo("근거가 부족합니다");
+  }
+
+  @Test
+  void reject_rejectsCardsThatAreNotConfirmed() {
+    for (CardStatus status : new CardStatus[] {
+        CardStatus.DRAFT, CardStatus.APPROVED, CardStatus.REJECTED}) {
+      TraceCard card = givenCard(status);
+      given(traceCardRepository.findById(card.getId())).willReturn(Optional.of(card));
+      given(memberRepository.findById(reviewer.getId())).willReturn(Optional.of(reviewer));
+
+      assertErrorCode(ErrorCode.STATE_CONFLICT,
+          () -> service.reject(requesterOf(reviewer), card.getId(), new CardRejectRequest("사유")));
+
+      assertThat(card.getStatus()).isEqualTo(status);
+    }
+    verify(cardStateHistoryRepository, never()).save(any());
+  }
+
+  @Test
+  void reject_rejectsPublishedPackage() {
+    ReflectionTestUtils.setField(handoverPackage, "status", HandoverStatus.PUBLISHED);
+    TraceCard card = givenCard(CardStatus.PREDECESSOR_CONFIRMED);
+    given(traceCardRepository.findById(card.getId())).willReturn(Optional.of(card));
+
+    assertErrorCode(ErrorCode.STATE_CONFLICT,
+        () -> service.reject(requesterOf(reviewer), card.getId(), new CardRejectRequest("사유")));
+
+    assertThat(card.getStatus()).isEqualTo(CardStatus.PREDECESSOR_CONFIRMED);
+    verify(cardStateHistoryRepository, never()).save(any());
+  }
+
+  @Test
+  void reject_rejectsUnknownReviewer() {
+    TraceCard card = givenCard(CardStatus.PREDECESSOR_CONFIRMED);
+    given(traceCardRepository.findById(card.getId())).willReturn(Optional.of(card));
+    given(memberRepository.findById(reviewer.getId())).willReturn(Optional.empty());
+
+    assertErrorCode(ErrorCode.RESOURCE_NOT_FOUND,
+        () -> service.reject(requesterOf(reviewer), card.getId(), new CardRejectRequest("사유")));
+
+    assertThat(card.getStatus()).isEqualTo(CardStatus.PREDECESSOR_CONFIRMED);
+    verify(cardStateHistoryRepository, never()).save(any());
+  }
+
+  @Test
+  void reject_rejectsUnknownCard() {
+    UUID unknownId = UUID.randomUUID();
+    given(traceCardRepository.findById(unknownId)).willReturn(Optional.empty());
+
+    assertErrorCode(ErrorCode.RESOURCE_NOT_FOUND,
+        () -> service.reject(requesterOf(reviewer), unknownId, new CardRejectRequest("사유")));
+
+    verify(cardStateHistoryRepository, never()).save(any());
   }
 
   @Test

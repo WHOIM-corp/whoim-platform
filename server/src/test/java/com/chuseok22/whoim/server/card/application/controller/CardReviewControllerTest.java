@@ -32,6 +32,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -146,11 +147,73 @@ class CardReviewControllerTest {
   }
 
   @Test
+  void reject_asReviewer_returns200() throws Exception {
+    given(cardReviewService.reject(any(), any(), any())).willReturn(emptyDetail());
+
+    mockMvc.perform(authorized(post(cardAction("reject")), Role.USER, Position.REVIEWER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"reason": "근거가 부족합니다"}
+                """))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void reject_withBlankOrMissingReason_returns400() throws Exception {
+    for (String body : new String[] {"{\"reason\": \"  \"}", "{}"}) {
+      mockMvc.perform(authorized(post(cardAction("reject")), Role.USER, Position.REVIEWER)
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(body))
+          .andExpect(status().isBadRequest());
+    }
+
+    verifyNoInteractions(cardReviewService);
+  }
+
+  @Test
+  void reject_withoutBody_returns400() throws Exception {
+    mockMvc.perform(authorized(post(cardAction("reject")), Role.USER, Position.REVIEWER))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(cardReviewService);
+  }
+
+  @Test
+  void reject_withTooLongReason_returns400() throws Exception {
+    String body = "{\"reason\": \"" + "가".repeat(501) + "\"}";
+
+    mockMvc.perform(authorized(post(cardAction("reject")), Role.USER, Position.REVIEWER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(cardReviewService);
+  }
+
+  @Test
+  void reject_asOthers_returns403() throws Exception {
+    String body = "{\"reason\": \"사유\"}";
+    for (Position position : new Position[] {Position.PREDECESSOR, Position.SUCCESSOR}) {
+      mockMvc.perform(authorized(post(cardAction("reject")), Role.USER, position)
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(body))
+          .andExpect(status().isForbidden());
+    }
+    mockMvc.perform(authorized(post(cardAction("reject")), Role.ADMIN, null)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(cardReviewService);
+  }
+
+  @Test
   void allEndpoints_withoutToken_return401() throws Exception {
     mockMvc.perform(get(CARDS)).andExpect(status().isUnauthorized());
     mockMvc.perform(get(CARDS + "/" + UUID.randomUUID())).andExpect(status().isUnauthorized());
     mockMvc.perform(post(cardAction("confirm"))).andExpect(status().isUnauthorized());
     mockMvc.perform(post(cardAction("approve"))).andExpect(status().isUnauthorized());
+    mockMvc.perform(post(cardAction("reject"))).andExpect(status().isUnauthorized());
   }
 
   private static String cardAction(String action) {
