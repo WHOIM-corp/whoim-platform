@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-17T05:19:40Z",
-    "currentVersion": "0.7.0",
+    "lastUpdated": "2026-10-17T06:25:25Z",
+    "currentVersion": "0.8.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 10
+    "totalReleases": 11
   },
   "releases": [
+    {
+      "version": "0.8.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-17",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- 전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — Package 진행률과 Card 요약, Publish API 추가\n- 전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — 전임자 Card Confirm과 승인자 Card 조회·Approve API 추가\n\n### ✅ 테스트\n- Package 진행률과 Publish 테스트 추가\n- Card Confirm·Approve 상태 전이와 검수 API 테스트 추가",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — Package 진행률과 Card 요약, Publish API 추가",
+            "전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — 전임자 Card Confirm과 승인자 Card 조회·Approve API 추가"
+          ]
+        },
+        "test": {
+          "title": "✅ 테스트",
+          "items": [
+            "Package 진행률과 Publish 테스트 추가",
+            "Card Confirm·Approve 상태 전이와 검수 API 테스트 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.7.0",
       "project_types": [

@@ -1,7 +1,19 @@
 # Changelog
 
-**현재 버전:** 0.7.0  
-**마지막 업데이트:** 2026-10-17T05:19:40Z  
+**현재 버전:** 0.8.0  
+**마지막 업데이트:** 2026-10-17T06:25:25Z  
+
+---
+
+## [0.8.0] - 2026-10-17
+
+**✨ 기능**
+- 전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — Package 진행률과 Card 요약, Publish API 추가
+- 전임자_Card_Confirm_승인자_Approve_Package_진행률_Publish_서버_API_묶음 — 전임자 Card Confirm과 승인자 Card 조회·Approve API 추가
+
+**✅ 테스트**
+- Package 진행률과 Publish 테스트 추가
+- Card Confirm·Approve 상태 전이와 검수 API 테스트 추가
 
 ---
 
