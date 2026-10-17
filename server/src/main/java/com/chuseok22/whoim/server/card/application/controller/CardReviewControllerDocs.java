@@ -1,6 +1,7 @@
 package com.chuseok22.whoim.server.card.application.controller;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.application.dto.request.CardRejectRequest;
 import com.chuseok22.whoim.server.card.application.dto.response.CardDetailResponse;
 import com.chuseok22.whoim.server.card.application.dto.response.CardSummaryResponse;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
@@ -59,4 +60,18 @@ public interface CardReviewControllerDocs {
           - 409 STATE_CONFLICT: Package가 PUBLISHED, 근거가 없음, Card가 PREDECESSOR_CONFIRMED가 아님(DRAFT 포함)
           """)
   ResponseEntity<CardDetailResponse> approve(AuthenticatedMember requester, UUID cardId);
+
+  @Operation(
+      summary = "승인자 Reject",
+      description = """
+          PREDECESSOR_CONFIRMED Card를 REJECTED로 바꾸고 사유와 함께 상태 이력을 남긴다. Card는 삭제하지 않는다.
+
+          실패 케이스
+          - 400 INVALID_REQUEST: 거절 사유가 비어 있거나 500자를 넘음
+          - 400 MALFORMED_REQUEST_BODY: 요청 본문이 없거나 형식이 올바르지 않음
+          - 403 ACCESS_DENIED: 승인자가 아님
+          - 404 RESOURCE_NOT_FOUND: Card가 없음
+          - 409 STATE_CONFLICT: Package가 PUBLISHED, Card가 PREDECESSOR_CONFIRMED가 아님(DRAFT 포함)
+          """)
+  ResponseEntity<CardDetailResponse> reject(AuthenticatedMember requester, UUID cardId, CardRejectRequest request);
 }

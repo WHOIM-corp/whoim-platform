@@ -94,6 +94,10 @@ public class TraceCard extends BaseEntity {
     moveTo(CardStatus.APPROVED);
   }
 
+  public void reject() {
+    moveTo(CardStatus.REJECTED);
+  }
+
   private void moveTo(CardStatus next) {
     if (!status.canTransitionTo(next)) {
       throw new CustomException(ErrorCode.STATE_CONFLICT);

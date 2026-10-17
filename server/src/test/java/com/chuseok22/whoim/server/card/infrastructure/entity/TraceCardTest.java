@@ -57,6 +57,29 @@ class TraceCardTest {
     }
   }
 
+  @Test
+  void reject_movesConfirmedToRejected() {
+    TraceCard card = givenCard(CardStatus.PREDECESSOR_CONFIRMED);
+
+    card.reject();
+
+    assertThat(card.getStatus()).isEqualTo(CardStatus.REJECTED);
+  }
+
+  @Test
+  void reject_rejectsNonConfirmed() {
+    for (CardStatus status : new CardStatus[] {
+        CardStatus.DRAFT, CardStatus.APPROVED, CardStatus.REJECTED}) {
+      TraceCard card = givenCard(status);
+
+      Throwable thrown = catchThrowable(card::reject);
+
+      assertThat(thrown).isInstanceOfSatisfying(CustomException.class,
+          e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+      assertThat(card.getStatus()).isEqualTo(status);
+    }
+  }
+
   private static TraceCard givenCard(CardStatus status) {
     TraceCard card = TraceCard.builder().title("제목").build();
     ReflectionTestUtils.setField(card, "status", status);
