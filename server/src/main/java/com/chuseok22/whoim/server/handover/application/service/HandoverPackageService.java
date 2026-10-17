@@ -1,8 +1,11 @@
 package com.chuseok22.whoim.server.handover.application.service;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
+import com.chuseok22.whoim.server.card.infrastructure.repository.TraceCardRepository;
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
+import com.chuseok22.whoim.server.handover.application.dto.data.HandoverProgress;
 import com.chuseok22.whoim.server.handover.application.dto.request.HandoverPackageCreateRequest;
 import com.chuseok22.whoim.server.handover.application.dto.request.HandoverPackageSuccessorRequest;
 import com.chuseok22.whoim.server.handover.application.dto.response.HandoverPackageResponse;
@@ -12,8 +15,11 @@ import com.chuseok22.whoim.server.handover.infrastructure.repository.HandoverPac
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import com.chuseok22.whoim.server.member.infrastructure.repository.MemberRepository;
+import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +30,8 @@ public class HandoverPackageService {
 
   private final HandoverPackageRepository handoverPackageRepository;
   private final MemberRepository memberRepository;
+  private final TraceCardRepository traceCardRepository;
+  private final Clock clock;
 
   @Transactional
   public HandoverPackageResponse create(HandoverPackageCreateRequest request) {
@@ -41,7 +49,7 @@ public class HandoverPackageService {
         .name(request.name())
         .description(request.description())
         .build());
-    return HandoverPackageResponse.from(handoverPackage);
+    return HandoverPackageResponse.from(handoverPackage, List.of());
   }
 
   // 검증 순서: Package -> Package 상태 -> 후임자
@@ -56,7 +64,7 @@ public class HandoverPackageService {
         ? null
         : findMemberWithPosition(request.successorId(), Position.SUCCESSOR);
     handoverPackage.assignSuccessor(successor);
-    return HandoverPackageResponse.from(handoverPackage);
+    return HandoverPackageResponse.from(handoverPackage, traceCardRepository.findAllByHandoverPackage(handoverPackage));
   }
 
   @Transactional(readOnly = true)
@@ -71,7 +79,14 @@ public class HandoverPackageService {
     } else {
       throw new CustomException(ErrorCode.ACCESS_DENIED);
     }
-    return handoverPackages.stream().map(HandoverPackageResponse::from).toList();
+    Map<HandoverPackage, List<TraceCard>> cardsByPackage = handoverPackages.isEmpty()
+        ? Map.of()
+        : traceCardRepository.findAllByHandoverPackageIn(handoverPackages).stream()
+            .collect(Collectors.groupingBy(TraceCard::getHandoverPackage));
+    return handoverPackages.stream()
+        .map(handoverPackage -> HandoverPackageResponse.from(
+            handoverPackage, cardsByPackage.getOrDefault(handoverPackage, List.of())))
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -79,7 +94,25 @@ public class HandoverPackageService {
     HandoverPackage handoverPackage = handoverPackageRepository.findById(handoverPackageId)
         .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
     validateReadable(requester, handoverPackage);
-    return HandoverPackageResponse.from(handoverPackage);
+    return HandoverPackageResponse.from(handoverPackage, traceCardRepository.findAllByHandoverPackage(handoverPackage));
+  }
+
+  // 검증 순서: Package -> 이미 공개 -> 후임자 -> 승인 완료 여부
+  @Transactional
+  public HandoverPackageResponse publish(AuthenticatedMember requester, UUID handoverPackageId) {
+    HandoverPackage handoverPackage = handoverPackageRepository.findById(handoverPackageId)
+        .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+    if (handoverPackage.getStatus() == HandoverStatus.PUBLISHED || handoverPackage.getSuccessor() == null) {
+      throw new CustomException(ErrorCode.STATE_CONFLICT);
+    }
+    List<TraceCard> cards = traceCardRepository.findAllByHandoverPackage(handoverPackage);
+    if (!HandoverProgress.from(cards).publishable()) {
+      throw new CustomException(ErrorCode.STATE_CONFLICT);
+    }
+    Member publisher = memberRepository.findById(requester.memberId())
+        .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+    handoverPackage.publish(publisher, clock.instant());
+    return HandoverPackageResponse.from(handoverPackage, cards);
   }
 
   private Member findMemberWithPosition(UUID memberId, Position expectedPosition) {

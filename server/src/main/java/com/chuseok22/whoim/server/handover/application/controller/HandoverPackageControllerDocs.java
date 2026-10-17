@@ -60,4 +60,17 @@ public interface HandoverPackageControllerDocs {
           - 404 RESOURCE_NOT_FOUND: Package가 없음
           """)
   ResponseEntity<HandoverPackageResponse> get(AuthenticatedMember requester, UUID handoverPackageId);
+
+  @Operation(
+      summary = "Package 공개",
+      description = """
+          승인자가 후임자가 지정되고 활성 Card(REJECTED 제외)가 모두 APPROVED인 Package를 PUBLISHED로 바꾼다.
+
+          실패 케이스
+          - 400 INVALID_REQUEST: 경로의 ID가 UUID 형식이 아님
+          - 403 ACCESS_DENIED: 승인자가 아님
+          - 404 RESOURCE_NOT_FOUND: Package가 없음
+          - 409 STATE_CONFLICT: 이미 PUBLISHED, 후임자 없음, 활성 Card가 없거나 미승인 Card가 있음
+          """)
+  ResponseEntity<HandoverPackageResponse> publish(AuthenticatedMember requester, UUID handoverPackageId);
 }
