@@ -12,4 +12,6 @@ public interface GapAnchorRepository extends JpaRepository<GapAnchor, UUID> {
   List<GapAnchor> findAllByGapIn(Collection<Gap> gaps);
 
   List<GapAnchor> findAllByGap(Gap gap);
+
+  List<GapAnchor> findAllByGapOrderByCreatedAtAsc(Gap gap);
 }

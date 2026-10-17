@@ -4,6 +4,8 @@ import com.chuseok22.whoim.server.evidence.infrastructure.entity.EvidenceDocumen
 import com.chuseok22.whoim.server.handover.infrastructure.entity.HandoverPackage;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EvidenceDocumentRepository extends JpaRepository<EvidenceDocument, UUID> {
@@ -11,4 +13,6 @@ public interface EvidenceDocumentRepository extends JpaRepository<EvidenceDocume
   List<EvidenceDocument> findAllByHandoverPackageOrderByCreatedAtAsc(HandoverPackage handoverPackage);
 
   long countByHandoverPackage(HandoverPackage handoverPackage);
+
+  Page<EvidenceDocument> findAllByHandoverPackageId(UUID handoverPackageId, Pageable pageable);
 }

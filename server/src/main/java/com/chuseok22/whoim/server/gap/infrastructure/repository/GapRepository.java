@@ -4,6 +4,8 @@ import com.chuseok22.whoim.server.gap.infrastructure.entity.Gap;
 import com.chuseok22.whoim.server.handover.infrastructure.entity.HandoverPackage;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GapRepository extends JpaRepository<Gap, UUID> {
@@ -11,4 +13,6 @@ public interface GapRepository extends JpaRepository<Gap, UUID> {
   boolean existsByHandoverPackage(HandoverPackage handoverPackage);
 
   List<Gap> findAllByHandoverPackageOrderByCreatedAtAsc(HandoverPackage handoverPackage);
+
+  Page<Gap> findAllByHandoverPackageId(UUID handoverPackageId, Pageable pageable);
 }
