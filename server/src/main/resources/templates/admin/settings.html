@@ -1,0 +1,121 @@
+<!doctype html>
+<html th:replace="~{admin/fragments/shell :: shell('서비스 설정', ~{::main}, 'settings')}" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>서비스 설정</title>
+</head>
+<body>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1>서비스 설정</h1>
+      <p>키마다 따로 저장합니다. 저장하면 다음 요청부터 바로 반영되며 재시작은 필요 없습니다.</p>
+    </div>
+  </div>
+
+  <div role="alert" class="alert alert-warning alert-soft" style="margin-bottom: 20px;">
+    <span>저장 즉시 운영에 반영됩니다. 프롬프트와 DLP 사전을 바꾸기 전에 현재 값을 따로 복사해 두세요.</span>
+  </div>
+
+  <section class="group" th:each="group : ${groups}">
+    <h2><span th:text="${group.name}">LLM</span> <span class="badge badge-ghost" th:text="${group.settings.size()}">0</span></h2>
+    <div class="panel">
+      <th:block th:each="setting : ${group.settings}">
+        <form class="setting" method="post" th:fragment="row"
+              th:action="@{/api/admin/settings/{key}(key=${setting.key})}"
+              th:attr="hx-post=@{/api/admin/settings/{key}(key=${setting.key})}"
+              hx-target="this" hx-swap="outerHTML"
+              th:with="isNumber=${setting.valueType.name() == 'INTEGER' or setting.valueType.name() == 'DECIMAL'},
+                       isLines=${setting.valueType.name() == 'LINES'},
+                       isPrompt=${setting.valueType.name() == 'STRING' and setting.maxLength == 8000},
+                       editorValue=${isNumber or setting.overridden or setting.errorMessage != null} ? ${setting.effectiveValue} : ''">
+          <div class="meta">
+            <div class="key" th:text="${setting.key}">llm.gemini.model</div>
+            <div class="desc" th:text="${setting.description}">설명</div>
+            <span class="badge badge-warning badge-soft badge-sm" th:if="${setting.overridden}">오버라이드</span>
+            <span class="badge badge-ghost badge-sm" th:unless="${setting.overridden}">기본값 사용 중</span>
+            <div class="stamp" th:if="${setting.updatedAt == null}">수정 이력 없음</div>
+            <div class="stamp" th:if="${setting.updatedAt != null}"
+                 th:text="${#temporals.format(setting.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-10-18 09:05</div>
+          </div>
+          <div class="editor">
+            <textarea th:if="${isPrompt or isLines}" class="textarea textarea-bordered w-full"
+                      th:classappend="${setting.errorMessage != null} ? 'textarea-error'"
+                      style="width:100%" th:rows="${isPrompt} ? 7 : 5" name="value"
+                      th:attr="data-count-mode=${isLines} ? 'lines' : 'characters'"
+                      th:placeholder="${isPrompt} ? '비워 두면 기본 프롬프트를 사용합니다.'"
+                      th:text="${editorValue}"></textarea>
+            <input th:if="${isNumber}" class="input input-bordered" style="width:200px" type="number" name="value"
+                   th:classappend="${setting.errorMessage != null} ? 'input-error'"
+                   th:attr="step=${setting.valueType.name() == 'DECIMAL'} ? '0.1' : '1',
+                            min=${setting.valueType.name() == 'DECIMAL'} ? ${#numbers.formatDecimal(setting.minimum, 1, 1, 'POINT')} : ${#numbers.formatInteger(setting.minimum, 1)},
+                            max=${setting.valueType.name() == 'DECIMAL'} ? ${#numbers.formatDecimal(setting.maximum, 1, 1, 'POINT')} : ${#numbers.formatInteger(setting.maximum, 1)}"
+                   th:value="${editorValue}">
+            <input th:unless="${isPrompt or isLines or isNumber}" class="input input-bordered w-full" style="width:100%"
+                   type="text" name="value" th:classappend="${setting.errorMessage != null} ? 'input-error'"
+                   th:value="${editorValue}"
+                   th:placeholder="${setting.defaultValue != null} ? ${setting.defaultValue} : '서버 설정 값 사용'">
+
+            <div class="hint" th:if="${setting.errorMessage != null}" style="color: var(--color-error);">
+              <span th:text="${setting.errorMessage}">설정 값이 올바르지 않습니다</span>
+            </div>
+            <div class="hint" th:if="${isPrompt}">
+              <span><span class="count" th:text="${#strings.length(editorValue)}">0</span> / <span th:text="${#numbers.formatInteger(setting.maxLength, 1, 'COMMA')}">8,000</span>자</span>
+            </div>
+            <div class="hint" th:if="${isLines}">
+              <span><span class="count">0</span>개 항목 · 항목당 2~100자, 최대 500개</span><span>중복과 빈 줄은 저장 시 정리됩니다</span>
+            </div>
+            <div class="hint" th:if="${isNumber}">
+              <span th:if="${setting.valueType.name() == 'DECIMAL'}"
+                    th:text="|${#numbers.formatDecimal(setting.minimum, 1, 1, 'POINT')} ~ ${#numbers.formatDecimal(setting.maximum, 1, 1, 'POINT')}|">0.0 ~ 2.0</span>
+              <span th:if="${setting.valueType.name() == 'INTEGER'}"
+                    th:text="|${#numbers.formatInteger(setting.minimum, 1, 'COMMA')} ~ ${#numbers.formatInteger(setting.maximum, 1, 'COMMA')} 사이의 정수|">1 ~ 1,000,000</span>
+              <span th:if="${setting.defaultValue != null}" th:text="|기본값 ${setting.defaultValue}|">기본값 0.2</span>
+            </div>
+            <div class="hint" th:unless="${isPrompt or isLines or isNumber}">
+              <span>영문·숫자와 . _ : - 만, 최대 <span th:text="${setting.maxLength}">200</span>자</span><span>비우고 저장 = 기본값</span>
+            </div>
+            <details th:if="${isPrompt and setting.defaultValue != null}">
+              <summary class="link">기본 프롬프트 보기</summary>
+              <pre class="muted" style="white-space:pre-wrap; margin:8px 0 0;" th:text="${setting.defaultValue}">기본 프롬프트</pre>
+            </details>
+
+            <div class="actions">
+              <span class="push"></span>
+              <button type="button" class="btn btn-sm btn-ghost" th:disabled="${!setting.overridden}"
+                      th:attr="hx-post=@{/api/admin/settings/{key}(key=${setting.key})}"
+                      hx-vals='{"value": ""}' hx-target="closest form" hx-swap="outerHTML">기본값으로 되돌리기</button>
+              <button class="btn btn-sm btn-primary" type="submit">저장</button>
+            </div>
+          </div>
+        </form>
+      </th:block>
+    </div>
+  </section>
+
+  <script>
+    // 글자 수와 항목 수를 입력에 맞춰 갱신한다. htmx로 행이 교체된 뒤에도 다시 계산한다
+    function refreshSettingCounts(root) {
+      root.querySelectorAll('textarea[data-count-mode]').forEach(function (textarea) {
+        var output = textarea.closest('form').querySelector('.count');
+        if (!output) {
+          return;
+        }
+        var count = textarea.dataset.countMode === 'lines'
+          ? textarea.value.split(/\r?\n/).filter(function (line) { return line.trim() !== ''; }).length
+          : textarea.value.length;
+        output.textContent = count.toLocaleString();
+      });
+    }
+    document.addEventListener('input', function (event) {
+      if (event.target.matches('textarea[data-count-mode]')) {
+        refreshSettingCounts(event.target.closest('form'));
+      }
+    });
+    document.addEventListener('htmx:afterSwap', function (event) {
+      refreshSettingCounts(event.detail.target.parentNode || document);
+    });
+    refreshSettingCounts(document);
+  </script>
+</main>
+</body>
+</html>

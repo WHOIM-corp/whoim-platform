@@ -101,6 +101,13 @@ class SettingKeyTest {
         .satisfies(exception -> assertThat(String.valueOf(exception.getMessage())).doesNotContain("비공개고객사"));
   }
 
+  @Test
+  void hintGetters_exposeRangeAndMaxLength() {
+    assertThat(SettingKey.GAP_ANALYSIS_MAX_INPUT_CHARACTERS.minimum()).isEqualTo(1);
+    assertThat(SettingKey.GAP_ANALYSIS_MAX_INPUT_CHARACTERS.maximum()).isEqualTo(1_000_000);
+    assertThat(SettingKey.PROMPT_GAP_ANALYSIS.maxLength()).isEqualTo(8000);
+  }
+
   private static void assertInvalid(SettingKey key, String value) {
     assertThatThrownBy(() -> key.validate(value))
         .isInstanceOfSatisfying(CustomException.class,

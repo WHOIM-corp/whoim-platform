@@ -1,0 +1,23 @@
+<!doctype html>
+<html th:replace="~{admin/fragments/shell :: shell('오류', ~{::main}, 'error')}" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>오류</title>
+</head>
+<body>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1>요청을 처리할 수 없습니다</h1>
+    </div>
+  </div>
+  <section class="panel">
+    <div class="panel-body">
+      <div role="alert" class="alert alert-error alert-soft">
+        <span th:text="${errorMessage}">오류 메시지</span>
+      </div>
+      <p style="margin-top: 16px;"><a class="link link-primary" th:href="@{/api/admin/tables}">테이블 목록으로 이동</a></p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

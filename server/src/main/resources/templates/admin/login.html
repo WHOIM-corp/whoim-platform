@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko" data-theme="light" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WHO I'M 관리자 로그인</title>
+  <link rel="stylesheet" th:href="@{/api/admin/assets/daisyui.min.css}">
+  <link rel="stylesheet" th:href="@{/api/admin/assets/themes.css}">
+  <link rel="stylesheet" th:href="@{/api/admin/assets/admin.css}">
+</head>
+<body>
+  <main class="login-wrap">
+    <section class="panel login-card">
+      <div class="panel-body" style="padding: 28px;">
+        <h1>WHO I'M 관리자</h1>
+        <p>개발 관리자 계정으로 로그인합니다.</p>
+
+        <!-- 아이디 없음과 비밀번호 불일치를 구분하지 않는 고정 문구 -->
+        <div th:if="${param.error}" role="alert" class="alert alert-error alert-soft mb-4" style="margin-bottom: 16px;">
+          <span>아이디 또는 비밀번호가 올바르지 않습니다.</span>
+        </div>
+        <div th:if="${param.logout}" role="status" class="alert alert-info alert-soft mb-4" style="margin-bottom: 16px;">
+          <span>로그아웃되었습니다.</span>
+        </div>
+
+        <form method="post" th:action="@{/api/admin/login}">
+          <label class="form-control" style="display:block; margin-bottom: 12px;">
+            <span class="label-text" style="display:block; margin-bottom: 4px;">아이디</span>
+            <input class="input input-bordered w-full" style="width:100%" type="text" name="username" autocomplete="username" autofocus>
+          </label>
+          <label class="form-control" style="display:block; margin-bottom: 20px;">
+            <span class="label-text" style="display:block; margin-bottom: 4px;">비밀번호</span>
+            <input class="input input-bordered w-full" style="width:100%" type="password" name="password" autocomplete="current-password">
+          </label>
+          <button class="btn btn-primary" style="width:100%" type="submit">로그인</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

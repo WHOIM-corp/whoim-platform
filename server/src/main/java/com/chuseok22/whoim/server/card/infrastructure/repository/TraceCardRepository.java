@@ -8,6 +8,8 @@ import com.chuseok22.whoim.server.interview.infrastructure.entity.Interview;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,4 +38,6 @@ public interface TraceCardRepository extends JpaRepository<TraceCard, UUID> {
       @Param("successorId") UUID successorId);
 
   boolean existsByInterview(Interview interview);
+
+  Page<TraceCard> findAllByHandoverPackageId(UUID handoverPackageId, Pageable pageable);
 }

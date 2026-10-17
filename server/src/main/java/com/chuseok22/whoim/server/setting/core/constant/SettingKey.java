@@ -78,6 +78,18 @@ public enum SettingKey {
     return defaultValue;
   }
 
+  public double minimum() {
+    return minimum;
+  }
+
+  public double maximum() {
+    return maximum;
+  }
+
+  public int maxLength() {
+    return maxLength;
+  }
+
   public static Optional<SettingKey> fromKey(String key) {
     return Arrays.stream(values())
         .filter(settingKey -> settingKey.key.equals(key))
