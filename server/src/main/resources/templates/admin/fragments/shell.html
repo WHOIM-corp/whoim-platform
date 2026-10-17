@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko" data-theme="light" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:fragment="shell(title, content, active)">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="_csrf" th:content="${_csrf?.token}">
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+  <title th:text="|${title} - WHO I'M 관리자|">WHO I'M 관리자</title>
+  <link rel="stylesheet" th:href="@{/api/admin/assets/daisyui.min.css}">
+  <link rel="stylesheet" th:href="@{/api/admin/assets/themes.css}">
+  <link rel="stylesheet" th:href="@{/api/admin/assets/admin.css}">
+  <script th:src="@{/api/admin/assets/htmx.min.js}"></script>
+  <script>
+    // htmx 요청에 CSRF 헤더를 붙인다. 메타가 비어 있으면 건너뛴다
+    document.addEventListener('htmx:configRequest', function (event) {
+      var token = document.querySelector('meta[name="_csrf"]');
+      var header = document.querySelector('meta[name="_csrf_header"]');
+      if (!token || !header || !token.content || !header.content) {
+        return;
+      }
+      event.detail.headers[header.content] = token.content;
+    });
+    // htmx 요청이 4xx/5xx면 서버 응답 본문 대신 고정 문구만 화면 상단에 알린다
+    document.addEventListener('htmx:responseError', function () {
+      if (document.getElementById('htmx-error-alert')) {
+        return;
+      }
+      var alertBox = document.createElement('div');
+      alertBox.id = 'htmx-error-alert';
+      alertBox.setAttribute('role', 'alert');
+      alertBox.className = 'alert alert-error alert-soft';
+      alertBox.textContent = '요청을 처리하지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.';
+      document.body.insertBefore(alertBox, document.body.firstChild);
+    });
+  </script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">WHO I'M<small>관리자</small></div>
+    <div class="who">
+      <span class="muted" sec:authentication="name">admin</span>
+      <form method="post" th:action="@{/api/admin/logout}"><button class="btn btn-sm btn-ghost" type="submit">로그아웃</button></form>
+    </div>
+  </header>
+
+  <nav class="sidebar">
+    <ul class="menu w-full" th:if="${sidebar != null}">
+      <li><a th:classappend="${active == 'tables'} ? 'menu-active'" th:href="@{/api/admin/tables}">테이블 목록</a></li>
+      <li class="menu-title">데이터 (읽기 전용)</li>
+      <li th:each="table : ${sidebar.tables}">
+        <a th:classappend="${active == table.tableName} ? 'menu-active'"
+           th:href="@{/api/admin/tables/{tableName}(tableName=${table.tableName})}">
+          <span th:text="${table.tableName}">member</span> <span class="count" th:text="${table.rowCount}">0</span>
+        </a>
+      </li>
+      <li class="menu-title">설정</li>
+      <li>
+        <a th:classappend="${active == 'settings'} ? 'menu-active'" th:href="@{/api/admin/settings}">
+          서비스 설정 <span class="count" th:text="${sidebar.settingCount}">0</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <main class="content" th:replace="${content}">
+    <p>본문</p>
+  </main>
+</div>
+</body>
+</html>
