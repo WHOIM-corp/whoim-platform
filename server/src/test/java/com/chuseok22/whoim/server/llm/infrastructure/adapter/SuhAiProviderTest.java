@@ -2,7 +2,7 @@ package com.chuseok22.whoim.server.llm.infrastructure.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -20,6 +20,7 @@ import com.chuseok22.whoim.server.llm.application.dto.data.LlmResponse;
 import com.chuseok22.whoim.server.llm.infrastructure.config.SuhAiClientConfig;
 import com.chuseok22.whoim.server.llm.infrastructure.properties.SuhAiProperties;
 import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,10 +52,9 @@ class SuhAiProviderTest {
     server = MockRestServiceServer.bindTo(builder).build();
     provider = new SuhAiProvider(builder.build(), properties, settingConfigService);
 
-    when(settingConfigService.getString(anyString(), anyString()))
+    when(settingConfigService.getString(any(SettingKey.class), anyString()))
         .thenAnswer(invocation -> invocation.getArgument(1));
-    when(settingConfigService.getDouble(anyString(), anyDouble()))
-        .thenAnswer(invocation -> invocation.getArgument(1));
+    when(settingConfigService.getDouble(any(SettingKey.class))).thenReturn(0.0);
   }
 
   @Test
@@ -66,7 +66,7 @@ class SuhAiProviderTest {
         .andExpect(jsonPath("$.model").value("gemma4:e4b"))
         .andExpect(jsonPath("$.prompt").value("질문"))
         .andExpect(jsonPath("$.system").value("시스템"))
-        .andExpect(jsonPath("$.temperature").value(0.2))
+        .andExpect(jsonPath("$.temperature").value(0.0))
         .andExpect(jsonPath("$.auto_unload").value(false))
         .andExpect(jsonPath("$.format.type").value("object"))
         .andRespond(withSuccess(successBody("{}"), MediaType.APPLICATION_JSON));
@@ -90,7 +90,7 @@ class SuhAiProviderTest {
 
   @Test
   void generate_usesSettingModel_whenPresent() {
-    when(settingConfigService.getString(eq("llm.suh-ai.model"), anyString())).thenReturn("gemma4:e2b");
+    when(settingConfigService.getString(eq(SettingKey.LLM_SUH_AI_MODEL), anyString())).thenReturn("gemma4:e2b");
     server.expect(requestTo(BASE_URL + "/ollama/chat"))
         .andExpect(jsonPath("$.model").value("gemma4:e2b"))
         .andRespond(withSuccess(successBody("{}"), MediaType.APPLICATION_JSON));
@@ -109,28 +109,16 @@ class SuhAiProviderTest {
 
     // 요청 값이 없으면 setting 값
     server.reset();
-    when(settingConfigService.getDouble(eq("llm.suh-ai.temperature"), anyDouble())).thenReturn(0.5);
+    when(settingConfigService.getDouble(SettingKey.LLM_SUH_AI_TEMPERATURE)).thenReturn(0.5);
     expectTemperature(0.5);
     provider.generate(new LlmRequest(null, "질문", null, null));
     server.verify();
 
-    // 둘 다 없으면 기본값 0.2
+    // 둘 다 없으면 레지스트리 기본값 0.0
     server.reset();
-    when(settingConfigService.getDouble(eq("llm.suh-ai.temperature"), anyDouble()))
-        .thenAnswer(invocation -> invocation.getArgument(1));
-    expectTemperature(0.2);
+    when(settingConfigService.getDouble(SettingKey.LLM_SUH_AI_TEMPERATURE)).thenReturn(0.0);
+    expectTemperature(0.0);
     provider.generate(new LlmRequest(null, "질문", null, null));
-    server.verify();
-  }
-
-  @ParameterizedTest
-  @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY})
-  void generate_fallsBackToDefaultTemperature_whenSettingNotFinite(double invalid) {
-    when(settingConfigService.getDouble(eq("llm.suh-ai.temperature"), anyDouble())).thenReturn(invalid);
-    expectTemperature(0.2);
-
-    provider.generate(new LlmRequest(null, "질문", null, null));
-
     server.verify();
   }
 
