@@ -1,0 +1,21 @@
+.desktop {
+  padding: 0.5rem;
+}
+
+.window {
+  position: relative;
+  height: calc(100vh - 1rem);
+  min-height: 38rem;
+  overflow: hidden;
+  border-radius: var(--radius-window);
+  // 색은 거의 없고 명암만 있어 사이드바 유리 너머로 은은하게 비친다.
+  background:
+    radial-gradient(40rem 32rem at 4% 20%, #dfe6f3 0%, transparent 62%),
+    radial-gradient(36rem 28rem at 96% 10%, #f3f4f7 0%, transparent 58%),
+    radial-gradient(40rem 32rem at 66% 100%, #dcdfe5 0%, transparent 60%), #eceef2;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 20%),
+    inset 0 0 0 1px rgb(255 255 255 / 30%),
+    0 2.5rem 6rem rgb(20 25 40 / 32%),
+    0 0.75rem 2rem rgb(20 25 40 / 20%);
+}
