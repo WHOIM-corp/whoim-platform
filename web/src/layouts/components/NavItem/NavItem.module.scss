@@ -1,0 +1,28 @@
+.item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0.5rem;
+  border-radius: var(--radius-button);
+  color: var(--color-ink-soft);
+  font-size: var(--text-small);
+  font-weight: 500;
+
+  &:hover {
+    background: rgb(255 255 255 / 40%);
+  }
+
+  // 선택 표시는 알약이 맡고, 항목은 글자 굵기만 바꾼다.
+  &[aria-current='page'] {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
