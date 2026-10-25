@@ -1,0 +1,20 @@
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  height: 100%;
+}
+
+.lights {
+  position: absolute;
+  z-index: 5;
+  top: 1.125rem;
+  left: 1.5rem;
+  display: inline-flex;
+}
+
+.auth {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 3rem 2rem 2rem;
+}
