@@ -53,7 +53,7 @@
 
 - 도메인 패키지는 해당 도메인을 구현할 때 만든다. 빈 패키지를 미리 만들지 않는다.
 - 엔티티와 Repository는 `infrastructure`, Controller는 `application`에 둔다.
-- web: `src/features/<name>/{components,hooks,api,...}`, 공용 코드는 `src/shared`.
+- web: `src/app`(진입·라우터), `src/layouts`(화면 틀), `src/features/<name>/{api,components,hooks,model,pages}`, 공용 코드는 `src/shared`. 상세는 `20-team-conventions.md`의 Web rules.
 
 ## Extension points
 
