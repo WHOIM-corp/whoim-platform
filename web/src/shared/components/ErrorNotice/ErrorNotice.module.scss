@@ -1,0 +1,38 @@
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgb(180 35 24 / 16%);
+  border-radius: var(--radius-button);
+  color: var(--status-danger);
+  font-size: var(--text-small);
+  background: var(--status-danger-tint);
+}
+
+.compact {
+  padding: 0.375rem 0.625rem;
+  font-size: var(--text-caption);
+}
+
+.icon {
+  flex: none;
+  margin-top: 0.1875rem;
+}
+
+.body {
+  display: grid;
+  flex: 1;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.action {
+  flex: none;
+  height: 1.875rem;
+  padding: 0 0.875rem;
+}

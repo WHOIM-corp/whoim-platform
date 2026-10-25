@@ -1,0 +1,26 @@
+@use 'mixins' as *;
+
+$glide-easing: cubic-bezier(0.34, 1.45, 0.5, 1);
+
+.pill {
+  @include liquid-pill-surface;
+
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--radius-button);
+  pointer-events: none;
+
+  transition:
+    top 460ms $glide-easing,
+    left 460ms $glide-easing,
+    width 320ms ease,
+    height 320ms ease;
+
+  &[hidden] {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

@@ -1,0 +1,18 @@
+.grid {
+  display: grid;
+  grid-template-columns: 16.75rem minmax(0, 1fr);
+  height: 100%;
+}
+
+// 메인 영역이 창 안에서 스크롤하고 툴바는 위에 고정된다.
+.main {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+}
+
+.content {
+  max-width: 96rem;
+  padding: 1.25rem 1.5rem 2.5rem;
+}

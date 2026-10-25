@@ -1,0 +1,30 @@
+@use 'mixins' as *;
+
+.card {
+  @include bezel-frame;
+
+  width: min(26rem, 100%);
+}
+
+.face {
+  padding: 2rem 1.75rem 1.5rem;
+  border-radius: var(--radius-window);
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin-top: 0.25rem;
+  color: var(--color-ink-muted);
+  font-size: var(--text-small);
+}
+
+.notice {
+  margin-top: 1.25rem;
+}

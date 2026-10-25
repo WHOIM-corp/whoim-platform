@@ -1,0 +1,99 @@
+// 토큰은 var(--…)로만 참조한다. tokens.scss는 global.scss만 @use 한다.
+
+// 사이드바 같은 떠 있는 유리 패널 (mock .sidebar)
+@mixin glass-surface {
+  border: 1px solid rgb(255 255 255 / 78%);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 48%) 0%, rgb(255 255 255 / 0%) 58%), var(--glass-fill);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow:
+    var(--glass-shadow),
+    0 1rem 3rem rgb(30 40 70 / 16%);
+}
+
+// 유리 베젤 + 안쪽 흰 면을 감싸는 틀 (mock .tcard, .login)
+@mixin bezel-frame {
+  padding: 0.375rem;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: var(--radius-bezel);
+  background: linear-gradient(
+    145deg,
+    rgb(255 255 255 / 95%) 0%,
+    rgb(255 255 255 / 50%) 55%,
+    rgb(255 255 255 / 78%) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 7%),
+    inset 0 0.0625rem 0 #fff,
+    inset 0 -0.0625rem 0 rgb(0 0 0 / 6%),
+    0 1.25rem 3rem rgb(30 40 70 / 15%),
+    0 0.25rem 0.75rem rgb(30 40 70 / 9%);
+}
+
+// 사이드바 선택과 분할 버튼이 쓰는 액체 유리 알약 (mock .liquid-pill, 굴절 SVG 필터 제외)
+@mixin liquid-pill-surface {
+  background:
+    radial-gradient(120% 160% at 12% -20%, rgb(255 255 255 / 85%) 0%, rgb(255 255 255 / 0%) 55%),
+    linear-gradient(
+      160deg,
+      rgb(255 255 255 / 38%) 0%,
+      rgb(255 255 255 / 6%) 55%,
+      rgb(255 255 255 / 24%) 100%
+    ),
+    rgb(110 120 150 / 8%);
+  -webkit-backdrop-filter: blur(10px) saturate(190%) brightness(1.04);
+  backdrop-filter: blur(10px) saturate(190%) brightness(1.04);
+  box-shadow:
+    inset 0.0625rem 0.0625rem 0.0625rem rgb(255 255 255 / 95%),
+    inset -0.0625rem -0.0625rem 0.0625rem rgb(0 0 0 / 12%),
+    inset 0 0 0.875rem rgb(255 255 255 / 45%),
+    0 0.25rem 0.875rem rgb(30 40 70 / 16%),
+    0 0.0625rem 0.125rem rgb(0 0 0 / 10%);
+}
+
+// 어두운 광택 주 버튼 (mock .btn.primary, .submit)
+@mixin gloss-button {
+  border: 1px solid #111;
+  border-radius: var(--radius-button);
+  color: #fff;
+  background: linear-gradient(180deg, #3b3b3d, #171717);
+  box-shadow:
+    inset 0 0.0625rem 0 rgb(255 255 255 / 24%),
+    0 0.25rem 0.75rem rgb(0 0 0 / 22%);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(180deg, #4a4a4c, #232323);
+  }
+}
+
+// 오목한 입력 칸 (mock login input)
+@mixin field-inset {
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: var(--radius-button);
+  background: #fbfbfc;
+  box-shadow: inset 0 0.0625rem 0.125rem rgb(0 0 0 / 6%);
+
+  &::placeholder {
+    color: var(--color-gray-500);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-ink);
+    background: #fff;
+    box-shadow: 0 0 0 0.1875rem rgb(23 23 23 / 12%);
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--status-danger);
+  }
+}
+
+// 아이콘·글자 칩의 흰색 그라데이션 면 (테두리·크기·반경은 사용처가 지정)
+@mixin icon-chip($lift-blur: 0.125rem, $lift-alpha: 10%) {
+  background: linear-gradient(180deg, #fff, #eceef3);
+  box-shadow:
+    inset 0 0.0625rem 0 #fff,
+    0 0.0625rem $lift-blur rgb(0 0 0 / #{$lift-alpha});
+}
