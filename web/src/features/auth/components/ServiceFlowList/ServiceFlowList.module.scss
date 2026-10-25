@@ -1,0 +1,49 @@
+@use 'mixins' as *;
+
+.flow {
+  position: relative;
+  display: grid;
+  gap: 1.125rem;
+  padding-top: 0.25rem;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0 0.875rem;
+  align-items: start;
+
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 2.125rem;
+    bottom: -1rem;
+    left: 0.9375rem;
+    width: 1px;
+    background: var(--line-strong);
+  }
+}
+
+.stepIcon {
+  @include icon-chip;
+
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 0.5rem;
+}
+
+.stepTitle {
+  display: block;
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.stepDescription {
+  color: var(--color-ink-muted);
+  font-size: var(--text-small);
+}

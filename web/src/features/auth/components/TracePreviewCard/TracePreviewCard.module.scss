@@ -1,0 +1,120 @@
+@use 'mixins' as *;
+
+// 실제 Card 상세와 같은 규칙: 3:4 비율, 유리 베젤 + 흰 면
+.preview {
+  @include bezel-frame;
+
+  width: 15.5rem;
+  aspect-ratio: 3 / 4;
+  padding: 0.3125rem;
+  border-radius: 1.25rem;
+  rotate: 2deg;
+}
+
+.face {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 0.9375rem;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4375rem 0.875rem;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #fbfbfc, #f3f4f7);
+}
+
+.mono {
+  color: var(--color-ink-soft);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.02em;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1875rem;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  border-radius: 0.375rem;
+  color: var(--status-ok);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--status-ok-tint);
+}
+
+.title {
+  padding: 0.75rem 0.875rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.rows {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin: 0 0.875rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.row {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: 0 0.5rem;
+  align-items: center;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.letter {
+  @include icon-chip;
+
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 0.8125rem;
+  height: 0.8125rem;
+  margin-left: 0.125rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 600;
+  vertical-align: 0.0625rem;
+  background: var(--color-ink);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.875rem;
+  border-top: 1px solid var(--line-soft);
+  color: var(--color-ink-muted);
+  font-size: 0.625rem;
+  background: linear-gradient(180deg, #f6f7f9, #f1f2f5);
+}
