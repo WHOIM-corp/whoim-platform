@@ -1,0 +1,43 @@
+:root {
+  --color-ink: #171717;
+  --color-ink-soft: #4d4d4d;
+  --color-ink-muted: #6f6f6f;
+
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f4;
+  --color-gray-200: #ebebeb;
+  --color-gray-300: #d6d6d6;
+  --color-gray-500: #a8a8a8;
+
+  --line-soft: rgb(0 0 0 / 8%);
+  --line-strong: rgb(0 0 0 / 14%);
+
+  --status-ok: #1a7f37;
+  --status-ok-tint: #e9f6ec;
+  --status-warn: #8a5a00;
+  --status-warn-tint: #fff5dc;
+  --status-danger: #b42318;
+  --status-danger-tint: #fdecec;
+
+  --text-base: 0.9375rem;
+  --text-card: 0.875rem;
+  --text-small: 0.8125rem;
+  --text-caption: 0.75rem;
+  --text-section: 1.0625rem;
+  --text-title: 1.5rem;
+
+  --radius-small: 0.25rem;
+  --radius-control: 0.375rem;
+  --radius-button: 0.625rem;
+  --radius-panel: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-bezel: 1.375rem;
+  --radius-window: 1rem;
+
+  --glass-fill: rgb(255 255 255 / 30%);
+  --glass-blur: 36px;
+  --glass-sat: 210%;
+  --glass-shadow:
+    0 0 0 1px rgb(0 0 0 / 6%), inset 0 1px 0 rgb(255 255 255 / 95%),
+    inset 0 0 0 1px rgb(255 255 255 / 40%), inset 0 -1px 0 rgb(0 0 0 / 7%);
+}
