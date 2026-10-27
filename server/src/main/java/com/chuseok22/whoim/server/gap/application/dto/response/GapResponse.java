@@ -13,16 +13,20 @@ public record GapResponse(
     String summary,
     String question,
     List<GapAnchorResponse> anchors,
-    GapProgress progress
+    GapProgress progress,
+    UUID interviewId,
+    UUID cardId
 ) {
 
-  public static GapResponse from(Gap gap, List<GapAnchor> anchors, GapProgress progress) {
+  public static GapResponse from(Gap gap, List<GapAnchor> anchors, GapProgress progress, UUID interviewId, UUID cardId) {
     return new GapResponse(
         gap.getId(),
         gap.getType(),
         gap.getSummary(),
         gap.getQuestion(),
         anchors.stream().map(GapAnchorResponse::from).toList(),
-        progress);
+        progress,
+        interviewId,
+        cardId);
   }
 }

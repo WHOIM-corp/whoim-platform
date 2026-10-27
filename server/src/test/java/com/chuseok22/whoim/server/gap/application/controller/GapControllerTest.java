@@ -14,8 +14,11 @@ import com.chuseok22.whoim.server.auth.infrastructure.config.JwtAuthenticationEn
 import com.chuseok22.whoim.server.auth.infrastructure.config.JwtProvider;
 import com.chuseok22.whoim.server.auth.infrastructure.config.SecurityConfig;
 import com.chuseok22.whoim.server.common.application.exception.GlobalExceptionHandler;
+import com.chuseok22.whoim.server.gap.application.dto.response.GapResponse;
 import com.chuseok22.whoim.server.gap.application.service.GapAnalysisService;
 import com.chuseok22.whoim.server.gap.application.service.GapService;
+import com.chuseok22.whoim.server.gap.core.constant.GapProgress;
+import com.chuseok22.whoim.server.gap.core.constant.GapType;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import java.time.Clock;
@@ -93,10 +96,16 @@ class GapControllerTest {
 
   @Test
   void list_asPredecessorAndReviewer_returns200() throws Exception {
-    given(gapService.list(any(), any())).willReturn(List.of());
+    UUID interviewId = UUID.randomUUID();
+    UUID cardId = UUID.randomUUID();
+    given(gapService.list(any(), any())).willReturn(List.of(new GapResponse(
+        UUID.randomUUID(), GapType.CHOICE_GAP, "요약", "질문", List.of(), GapProgress.COMPLETED, interviewId, cardId)));
 
     for (Position position : List.of(Position.PREDECESSOR, Position.REVIEWER)) {
-      mockMvc.perform(listRequest(Role.USER, position)).andExpect(status().isOk());
+      mockMvc.perform(listRequest(Role.USER, position))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$[0].interviewId").value(interviewId.toString()))
+          .andExpect(jsonPath("$[0].cardId").value(cardId.toString()));
     }
   }
 

@@ -108,6 +108,27 @@ class GapServiceTest {
   }
 
   @Test
+  void list_includesInterviewIdAndCardId() {
+    Gap withCard = gap();
+    Gap withoutInterview = gap();
+    Interview interview = interview(withCard, InterviewStatus.COMPLETED, InterviewEndReason.CHECKLIST_COMPLETE);
+    TraceCard card = card(interview, CardStatus.DRAFT);
+    ReflectionTestUtils.setField(card, "id", UUID.randomUUID());
+    given(gapRepository.findAllByHandoverPackageOrderByCreatedAtAsc(handoverPackage))
+        .willReturn(List.of(withCard, withoutInterview));
+    given(interviewRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(interview));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(card));
+    given(gapAnchorRepository.findAllByGapIn(any())).willReturn(List.of());
+
+    List<GapResponse> responses = service.list(requesterOf(owner), handoverPackage.getId());
+
+    assertThat(responses.get(0).interviewId()).isEqualTo(interview.getId());
+    assertThat(responses.get(0).cardId()).isEqualTo(card.getId());
+    assertThat(responses.get(1).interviewId()).isNull();
+    assertThat(responses.get(1).cardId()).isNull();
+  }
+
+  @Test
   void list_reviewerCanReadAndOtherPredecessorCannot() {
     given(gapRepository.findAllByHandoverPackageOrderByCreatedAtAsc(handoverPackage)).willReturn(List.of());
     given(gapAnchorRepository.findAllByGapIn(any())).willReturn(List.of());

@@ -56,7 +56,8 @@ public class GapService {
         .map(gap -> {
           Interview interview = interviewByGapId.get(gap.getId());
           TraceCard card = interview == null ? null : cardByInterviewId.get(interview.getId());
-          return GapResponse.from(gap, anchorsByGapId.getOrDefault(gap.getId(), List.of()), computeProgress(interview, card));
+          return GapResponse.from(gap, anchorsByGapId.getOrDefault(gap.getId(), List.of()), computeProgress(interview, card),
+              interview == null ? null : interview.getId(), card == null ? null : card.getId());
         })
         .toList();
   }
