@@ -1,0 +1,42 @@
+@use 'mixins' as *;
+
+.panel {
+  @include glass-surface;
+
+  position: sticky;
+  top: 0;
+  width: 26rem;
+  border-radius: 1.125rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-section);
+}
+
+.subtitle {
+  margin: 0.125rem 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-small);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+}
+
+.body {
+  padding: 0.875rem 1rem 1rem;
+  border-radius: 0 0 1.125rem 1.125rem;
+  background: rgb(255 255 255 / 36%);
+}

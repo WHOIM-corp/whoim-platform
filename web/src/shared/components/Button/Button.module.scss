@@ -48,6 +48,22 @@
   color: var(--color-ink);
 }
 
+// 되돌릴 수 없는 동작(반려)이다. 흰 버튼에 붉은 글자, 대화상자의 확정 버튼은 붉은 면이다.
+.danger {
+  color: var(--status-danger);
+}
+
+.dangerSolid {
+  border-color: var(--status-danger);
+  color: #fff;
+  background: var(--status-danger);
+
+  &:hover:not(:disabled) {
+    background: var(--status-danger);
+    filter: brightness(1.1);
+  }
+}
+
 .spinner {
   animation: spin 0.8s linear infinite;
 
