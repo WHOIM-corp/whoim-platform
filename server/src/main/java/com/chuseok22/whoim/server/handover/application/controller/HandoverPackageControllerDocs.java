@@ -43,9 +43,11 @@ public interface HandoverPackageControllerDocs {
       summary = "Package 목록 조회",
       description = """
           최신순 목록을 반환한다. 승인자는 전체, 전임자는 본인 Package만 본다.
+          후임자는 본인에게 지정된 PUBLISHED Package만 보며, cards와 progress는 APPROVED Card만으로 계산한다.
+          후임자에게도 Package의 predecessor.username(로그인 ID)이 그대로 나간다. 수용한 노출이다.
 
           실패 케이스
-          - 403 ACCESS_DENIED: 전임자·승인자가 아님
+          - 403 ACCESS_DENIED: 전임자·승인자·후임자가 아님
           """)
   ResponseEntity<List<HandoverPackageResponse>> list(AuthenticatedMember requester);
 
@@ -53,10 +55,11 @@ public interface HandoverPackageControllerDocs {
       summary = "Package 상세 조회",
       description = """
           승인자는 전체, 전임자는 본인 Package만 조회한다.
+          후임자는 본인에게 지정된 PUBLISHED Package만 조회하며, cards와 progress는 APPROVED Card만으로 계산한다.
 
           실패 케이스
           - 400 INVALID_REQUEST: 경로의 ID가 UUID 형식이 아님
-          - 403 ACCESS_DENIED: 권한 없음 또는 남의 Package
+          - 403 ACCESS_DENIED: 권한 없음 또는 남의 Package, 후임자가 지정되지 않았거나 아직 PUBLISHED가 아닌 Package(후임자)
           - 404 RESOURCE_NOT_FOUND: Package가 없음
           """)
   ResponseEntity<HandoverPackageResponse> get(AuthenticatedMember requester, UUID handoverPackageId);

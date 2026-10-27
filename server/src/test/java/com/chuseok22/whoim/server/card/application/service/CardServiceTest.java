@@ -119,7 +119,8 @@ class CardServiceTest {
   void setUp() {
     service = new CardService(
         interviewRepository, interviewTurnRepository, gapAnchorRepository, traceCardRepository,
-        cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, settingConfigService, codec, transactionManager);
+        cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, settingConfigService, codec,
+        new EvidenceElementResolver(), transactionManager);
     given(settingConfigService.getString(any(SettingKey.class), anyString()))
         .willAnswer(invocation -> invocation.getArgument(1));
     owner = member("owner", Position.PREDECESSOR);
@@ -231,6 +232,18 @@ class CardServiceTest {
     assertThat(direct.get(0).getExcerpt()).isEqualTo("재시도를 5회로 정했습니다");
     assertThat(response.evidenceLinks()).extracting(CardEvidenceLinkResponse::type)
         .containsExactlyInAnyOrder(EvidenceLinkType.RECORDED, EvidenceLinkType.DIRECT);
+  }
+
+  @Test
+  void create_directLinkCarriesElementsFilledByItsTurn() {
+    CardResponse response = service.create(requesterOf(owner), interview.getId());
+
+    CardEvidenceLinkResponse direct = response.evidenceLinks().stream()
+        .filter(link -> link.type() == EvidenceLinkType.DIRECT).findFirst().orElseThrow();
+    CardEvidenceLinkResponse recorded = response.evidenceLinks().stream()
+        .filter(link -> link.type() == EvidenceLinkType.RECORDED).findFirst().orElseThrow();
+    assertThat(direct.elements()).containsExactly(TraceElement.CAUSE);
+    assertThat(recorded.elements()).isEmpty();
   }
 
   @Test

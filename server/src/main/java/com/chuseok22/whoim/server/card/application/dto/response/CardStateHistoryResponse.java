@@ -10,6 +10,7 @@ public record CardStateHistoryResponse(
     CardStatus fromStatus,
     CardStatus toStatus,
     String actorUsername,
+    String actorName,
     String reason,
     OffsetDateTime createdAt
 ) {
@@ -19,6 +20,7 @@ public record CardStateHistoryResponse(
         history.getFromStatus(),
         history.getToStatus(),
         history.getActor() == null ? null : history.getActor().getUsername(),
+        history.getActor() == null ? null : history.getActor().getName(),
         history.getReason(),
         SeoulTime.toOffsetDateTime(history.getCreatedAt()));
   }

@@ -1,5 +1,6 @@
 package com.chuseok22.whoim.server.handover.infrastructure.repository;
 
+import com.chuseok22.whoim.server.handover.core.constant.HandoverStatus;
 import com.chuseok22.whoim.server.handover.infrastructure.entity.HandoverPackage;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import jakarta.persistence.LockModeType;
@@ -16,6 +17,8 @@ public interface HandoverPackageRepository extends JpaRepository<HandoverPackage
   List<HandoverPackage> findAllByOrderByCreatedAtDesc();
 
   List<HandoverPackage> findAllByPredecessorOrderByCreatedAtDesc(Member predecessor);
+
+  List<HandoverPackage> findAllBySuccessorIdAndStatusOrderByCreatedAtDesc(UUID successorId, HandoverStatus status);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<HandoverPackage> findWithLockById(UUID id);

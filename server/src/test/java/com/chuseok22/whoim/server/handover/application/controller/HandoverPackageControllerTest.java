@@ -15,7 +15,9 @@ import com.chuseok22.whoim.server.auth.infrastructure.config.JwtAccessDeniedHand
 import com.chuseok22.whoim.server.auth.infrastructure.config.JwtAuthenticationEntryPoint;
 import com.chuseok22.whoim.server.auth.infrastructure.config.JwtProvider;
 import com.chuseok22.whoim.server.auth.infrastructure.config.SecurityConfig;
+import com.chuseok22.whoim.server.card.core.constant.CardStatus;
 import com.chuseok22.whoim.server.common.application.exception.GlobalExceptionHandler;
+import com.chuseok22.whoim.server.handover.application.dto.response.HandoverCardSummaryResponse;
 import com.chuseok22.whoim.server.handover.application.dto.response.HandoverPackageResponse;
 import com.chuseok22.whoim.server.handover.application.dto.response.HandoverProgressResponse;
 import com.chuseok22.whoim.server.handover.application.service.HandoverPackageService;
@@ -121,21 +123,57 @@ class HandoverPackageControllerTest {
   }
 
   @Test
-  void listAndGet_predecessorAndReviewerOnly() throws Exception {
+  void listAndGet_predecessorReviewerAndSuccessorOnly() throws Exception {
     UUID packageId = UUID.randomUUID();
     given(handoverPackageService.list(any())).willReturn(List.of());
     given(handoverPackageService.get(any(), eq(packageId))).willReturn(response());
 
-    for (Position position : List.of(Position.PREDECESSOR, Position.REVIEWER)) {
+    for (Position position : List.of(Position.PREDECESSOR, Position.REVIEWER, Position.SUCCESSOR)) {
       mockMvc.perform(get(BASE_URL).header(HttpHeaders.AUTHORIZATION, bearer(position)))
           .andExpect(status().isOk());
       mockMvc.perform(get(BASE_URL + "/" + packageId).header(HttpHeaders.AUTHORIZATION, bearer(position)))
           .andExpect(status().isOk());
     }
-    mockMvc.perform(get(BASE_URL).header(HttpHeaders.AUTHORIZATION, bearer(Position.SUCCESSOR)))
+    String adminToken = "Bearer " + jwtProvider.issue(
+        new AuthenticatedMember(UUID.randomUUID(), "probe-admin", Role.ADMIN, null));
+    mockMvc.perform(get(BASE_URL).header(HttpHeaders.AUTHORIZATION, adminToken))
         .andExpect(status().isForbidden());
-    mockMvc.perform(get(BASE_URL + "/" + packageId).header(HttpHeaders.AUTHORIZATION, bearer(Position.SUCCESSOR)))
+    mockMvc.perform(get(BASE_URL + "/" + packageId).header(HttpHeaders.AUTHORIZATION, adminToken))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void writeEndpoints_asSuccessor_returns403() throws Exception {
+    UUID packageId = UUID.randomUUID();
+
+    mockMvc.perform(createRequest(Position.SUCCESSOR, validBody())).andExpect(status().isForbidden());
+    mockMvc.perform(put(BASE_URL + "/" + packageId + "/successor")
+            .contentType(MediaType.APPLICATION_JSON).content("{\"successorId\":null}")
+            .header(HttpHeaders.AUTHORIZATION, bearer(Position.SUCCESSOR)))
+        .andExpect(status().isForbidden());
+    mockMvc.perform(post(BASE_URL + "/" + packageId + "/publish")
+            .header(HttpHeaders.AUTHORIZATION, bearer(Position.SUCCESSOR)))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(handoverPackageService);
+  }
+
+  @Test
+  void get_exposesCardActionAndEvidenceCounts() throws Exception {
+    UUID packageId = UUID.randomUUID();
+    HandoverPackageResponse base = response();
+    given(handoverPackageService.get(any(), eq(packageId))).willReturn(new HandoverPackageResponse(
+        base.id(), base.name(), null, base.status(), base.predecessor(), null, base.progress(),
+        List.of(new HandoverCardSummaryResponse(
+            UUID.randomUUID(), "제목", CardStatus.APPROVED, "재시도 5회 유지", 2, 1, base.createdAt())),
+        base.createdAt(), null));
+
+    mockMvc.perform(get(BASE_URL + "/" + packageId).header(HttpHeaders.AUTHORIZATION, bearer(Position.REVIEWER)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.cards[0].action").value("재시도 5회 유지"))
+        .andExpect(jsonPath("$.cards[0].directEvidenceCount").value(2))
+        .andExpect(jsonPath("$.cards[0].recordedEvidenceCount").value(1))
+        .andExpect(jsonPath("$.cards[0].updatedAt").value(org.hamcrest.Matchers.endsWith("+09:00")));
   }
 
   @Test
