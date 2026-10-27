@@ -1,0 +1,14 @@
+.stage {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.cardColumn {
+  flex: none;
+  width: 30rem;
+}
+
+.notice {
+  margin-bottom: 0.875rem;
+}
