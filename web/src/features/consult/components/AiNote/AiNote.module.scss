@@ -1,0 +1,30 @@
+.note {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px dashed rgb(0 0 0 / 18%);
+  border-radius: 1rem;
+  color: var(--color-ink-soft);
+  font-size: var(--text-small);
+  background: rgb(255 255 255 / 42%);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.icon {
+  flex: none;
+  margin-top: 0.125rem;
+}
+
+.label {
+  display: block;
+  color: var(--color-ink);
+  font-size: var(--text-caption);
+}
+
+.text {
+  margin: 0.125rem 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
