@@ -16,7 +16,8 @@ public record SeedProperties(List<SeedMember> members) {
   }
 
   // record의 toString에 비밀번호가 나오므로 로그나 예외 메시지에 객체 전체를 넣지 않는다
-  public record SeedMember(String username, String password, String name, Role role, Position position) {
+  public record SeedMember(String username, String password, String name, Role role, Position position,
+                           String employeeNumber, String department, String jobTitle) {
 
   }
 }

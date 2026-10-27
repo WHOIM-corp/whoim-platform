@@ -58,6 +58,20 @@ class MemberSeedRunnerTest {
   }
 
   @Test
+  void newUsername_isSavedWithProfile() {
+    given(memberRepository.existsByUsername("fresh")).willReturn(false);
+
+    runnerWith(List.of(seed("fresh", Role.USER, Position.SUCCESSOR))).run(null);
+
+    ArgumentCaptor<Member> captor = ArgumentCaptor.forClass(Member.class);
+    verify(memberRepository).save(captor.capture());
+    Member saved = captor.getValue();
+    assertThat(saved.getEmployeeNumber()).isEqualTo("2026001");
+    assertThat(saved.getDepartment()).isEqualTo("결제플랫폼팀");
+    assertThat(saved.getJobTitle()).isEqualTo("사원");
+  }
+
+  @Test
   void invalidSeed_throwsIllegalStateAndDoesNotSave() {
     MemberSeedRunner runner = runnerWith(List.of(seed("admin", Role.ADMIN, Position.REVIEWER)));
 
@@ -70,6 +84,8 @@ class MemberSeedRunnerTest {
   }
 
   private SeedMember seed(String username, Role role, Position position) {
-    return new SeedMember(username, DUMMY_PASSWORD, "이름", role, position);
+    return role == Role.ADMIN
+        ? new SeedMember(username, DUMMY_PASSWORD, "이름", role, position, null, null, null)
+        : new SeedMember(username, DUMMY_PASSWORD, "이름", role, position, "2026001", "결제플랫폼팀", "사원");
   }
 }
