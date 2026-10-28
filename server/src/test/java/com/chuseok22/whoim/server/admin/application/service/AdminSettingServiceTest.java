@@ -38,7 +38,7 @@ class AdminSettingServiceTest {
 
     assertThat(groups).extracting(AdminSettingGroupResponse::name)
         .containsExactly("LLM", "Gap 분석", "프롬프트 지침", "DLP 엔티티 사전");
-    assertThat(groups).extracting(group -> group.settings().size()).containsExactly(4, 1, 5, 4);
+    assertThat(groups).extracting(group -> group.settings().size()).containsExactly(4, 1, 7, 4);
   }
 
   @Test

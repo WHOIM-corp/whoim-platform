@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class GapAnalysisResultConverter {
 
-  static final int MAX_GAPS_PER_ANALYSIS = 5;
+  static final int MAX_GAPS_PER_ANALYSIS = 3;
   private static final int MIN_ANCHORS_FOR_EVIDENCE_CONFLICT = 2;
   private static final Map<String, GapType> ALLOWED_TYPES = Map.of(
       GapType.CHOICE_GAP.name(), GapType.CHOICE_GAP,

@@ -41,7 +41,7 @@ class CardGenerationPromptTest {
   void build_systemForbidsNewFactsAndRequiresVerbatimCopy() {
     LlmRequest request = CardGenerationPrompt.build(DefaultPromptInstructions.CARD_GENERATION, gap, TraceState.empty(), List.of());
 
-    assertThat(request.system()).contains("title을 포함한 모든 필드", "새 사실", "글자 그대로", "JSON만", "추측하지 않습니다", "null");
+    assertThat(request.system()).contains("입력에 없는", "title은", "원문을 그대로", "directEvidence", "null", "JSON만");
   }
 
   @Test
@@ -50,7 +50,20 @@ class CardGenerationPromptTest {
         DefaultPromptInstructions.CARD_GENERATION, gap, TraceState.empty(), List.of());
 
     assertThat(request.system()).startsWith(DefaultPromptInstructions.CARD_GENERATION);
-    assertThat(request.system()).contains("응답 형태:", "{\"title\":\"...\"", "\"directEvidence\"");
+    assertThat(request.system()).contains("응답 형태:", "{\"title\":\"특정 조건에서", "\"directEvidence\"",
+        "directEvidence에는 유효한 항목을 최소 1개 포함합니다");
+  }
+
+  @Test
+  void build_wrapsSectionsInSentinel() {
+    TraceState state = new TraceState(Map.of(
+        TraceElement.CAUSE, new TraceStateEntry(TraceElementStatus.FILLED, "트래픽 폭주", EvidenceLinkType.DIRECT, 1)));
+
+    String prompt = CardGenerationPrompt.build(
+        DefaultPromptInstructions.CARD_GENERATION, gap, state, List.of(turn(1, "답변"))).prompt();
+
+    assertThat(prompt).startsWith("다음 인터뷰 결과로 TRACE Card를 만드세요.\n\n===== BEGIN INPUT DATA =====\n\n[Gap 요약]");
+    assertThat(prompt).endsWith("[답변 발췌 후보]\n- 턴 1: 답변\n\n===== END INPUT DATA =====");
   }
 
   @Test

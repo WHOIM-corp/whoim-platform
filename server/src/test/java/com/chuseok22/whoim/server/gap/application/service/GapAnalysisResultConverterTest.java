@@ -64,13 +64,13 @@ class GapAnalysisResultConverterTest {
   }
 
   @Test
-  void convert_capsAtFiveGaps() {
+  void convert_capsAtThreeGaps() {
     GapAnchorCandidate[] anchors = IntStream.rangeClosed(1, 8).mapToObj(line -> anchor(line, line)).toArray(GapAnchorCandidate[]::new);
     GapCandidate[] gaps = IntStream.range(0, 8).mapToObj(index -> gap("CHOICE_GAP", anchors[index])).toArray(GapCandidate[]::new);
 
     List<ConvertedGap> converted = converter.convert(result(gaps), documents);
 
-    assertThat(converted).hasSize(GapAnalysisResultConverter.MAX_GAPS_PER_ANALYSIS).hasSize(5);
+    assertThat(converted).hasSize(GapAnalysisResultConverter.MAX_GAPS_PER_ANALYSIS).hasSize(3);
     assertThat(converted.get(0).anchors().get(0).excerpt()).isEqualTo("l1");
   }
 
