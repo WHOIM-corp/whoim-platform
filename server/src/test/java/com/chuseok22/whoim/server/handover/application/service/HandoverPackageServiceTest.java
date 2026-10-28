@@ -4,14 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.application.service.CardEvidenceCounter;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
+import com.chuseok22.whoim.server.card.core.constant.EvidenceLinkType;
 import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
+import com.chuseok22.whoim.server.card.infrastructure.repository.CardEvidenceLinkRepository;
+import com.chuseok22.whoim.server.card.infrastructure.repository.EvidenceCountRow;
 import com.chuseok22.whoim.server.card.infrastructure.repository.TraceCardRepository;
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
@@ -48,6 +54,8 @@ class HandoverPackageServiceTest {
   private MemberRepository memberRepository;
   @Mock
   private TraceCardRepository traceCardRepository;
+  @Mock
+  private CardEvidenceLinkRepository cardEvidenceLinkRepository;
 
   private static final Instant NOW = Instant.parse("2026-10-17T00:00:00Z");
 
@@ -60,7 +68,8 @@ class HandoverPackageServiceTest {
   @BeforeEach
   void setUp() {
     service = new HandoverPackageService(
-        handoverPackageRepository, memberRepository, traceCardRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        handoverPackageRepository, memberRepository, traceCardRepository,
+        new CardEvidenceCounter(cardEvidenceLinkRepository), Clock.fixed(NOW, ZoneOffset.UTC));
     predecessor = givenMember("predecessor", Position.PREDECESSOR);
     successor = givenMember("successor", Position.SUCCESSOR);
     reviewer = givenMember("reviewer", Position.REVIEWER);
@@ -198,7 +207,60 @@ class HandoverPackageServiceTest {
 
   @Test
   void list_rejectsOtherPositions() {
-    assertThat(errorCodeOf(() -> service.list(requesterOf(successor)))).isEqualTo(ErrorCode.ACCESS_DENIED);
+    Member admin = Member.builder().username("admin").name("admin").role(Role.ADMIN).build();
+    ReflectionTestUtils.setField(admin, "id", UUID.randomUUID());
+
+    assertThat(errorCodeOf(() -> service.list(requesterOf(admin)))).isEqualTo(ErrorCode.ACCESS_DENIED);
+  }
+
+  @Test
+  void list_asSuccessor_returnsOnlyOwnPublished_withApprovedCardsOnly() {
+    HandoverPackage published = givenPackageWithSuccessor();
+    ReflectionTestUtils.setField(published, "status", HandoverStatus.PUBLISHED);
+    TraceCard approved = givenCard(published, CardStatus.APPROVED);
+    TraceCard draft = givenCard(published, CardStatus.DRAFT);
+    TraceCard rejected = givenCard(published, CardStatus.REJECTED);
+    given(handoverPackageRepository.findAllBySuccessorIdAndStatusOrderByCreatedAtDesc(
+        successor.getId(), HandoverStatus.PUBLISHED)).willReturn(List.of(published));
+    given(traceCardRepository.findAllByHandoverPackageIn(List.of(published)))
+        .willReturn(List.of(approved, draft, rejected));
+
+    List<HandoverPackageResponse> responses = service.list(requesterOf(successor));
+
+    assertThat(responses).hasSize(1);
+    assertThat(responses.get(0).cards()).extracting(card -> card.id()).containsExactly(approved.getId());
+    assertThat(responses.get(0).progress().activeCount()).isEqualTo(1);
+    assertThat(responses.get(0).progress().approvedCount()).isEqualTo(1);
+  }
+
+  @Test
+  void get_asSuccessor_ownPublished_returnsApprovedCardsOnly() {
+    HandoverPackage published = givenPackageWithSuccessor();
+    ReflectionTestUtils.setField(published, "status", HandoverStatus.PUBLISHED);
+    TraceCard approved = givenCard(published, CardStatus.APPROVED);
+    TraceCard draft = givenCard(published, CardStatus.DRAFT);
+    given(handoverPackageRepository.findById(published.getId())).willReturn(Optional.of(published));
+    given(traceCardRepository.findAllByHandoverPackage(published)).willReturn(List.of(approved, draft));
+
+    HandoverPackageResponse response = service.get(requesterOf(successor), published.getId());
+
+    assertThat(response.cards()).extracting(card -> card.id()).containsExactly(approved.getId());
+    assertThat(response.progress().activeCount()).isEqualTo(1);
+  }
+
+  @Test
+  void get_asSuccessor_writingOrOtherSuccessor_throwsAccessDenied() {
+    HandoverPackage writing = givenPackageWithSuccessor();
+    HandoverPackage othersPublished = givenPackage(predecessor);
+    othersPublished.assignSuccessor(givenMember("other", Position.SUCCESSOR));
+    ReflectionTestUtils.setField(othersPublished, "status", HandoverStatus.PUBLISHED);
+    given(handoverPackageRepository.findById(writing.getId())).willReturn(Optional.of(writing));
+    given(handoverPackageRepository.findById(othersPublished.getId())).willReturn(Optional.of(othersPublished));
+
+    assertThat(errorCodeOf(() -> service.get(requesterOf(successor), writing.getId())))
+        .isEqualTo(ErrorCode.ACCESS_DENIED);
+    assertThat(errorCodeOf(() -> service.get(requesterOf(successor), othersPublished.getId())))
+        .isEqualTo(ErrorCode.ACCESS_DENIED);
   }
 
   @Test
@@ -217,8 +279,6 @@ class HandoverPackageServiceTest {
     AuthenticatedMember otherPredecessor = requesterOf(givenMember("other", Position.PREDECESSOR));
 
     assertThat(errorCodeOf(() -> service.get(otherPredecessor, handoverPackage.getId())))
-        .isEqualTo(ErrorCode.ACCESS_DENIED);
-    assertThat(errorCodeOf(() -> service.get(requesterOf(successor), handoverPackage.getId())))
         .isEqualTo(ErrorCode.ACCESS_DENIED);
   }
 
@@ -274,6 +334,42 @@ class HandoverPackageServiceTest {
     assertThat(response.progress().activeCount()).isEqualTo(3);
     assertThat(response.cards()).hasSize(3);
     assertThat(response.publishedAt()).isNull();
+  }
+
+  @Test
+  void get_cardsIncludeActionAndEvidenceCounts() {
+    HandoverPackage handoverPackage = givenPackage(predecessor);
+    TraceCard card = givenCard(handoverPackage, CardStatus.APPROVED);
+    ReflectionTestUtils.setField(card, "action", "재시도 5회 유지");
+    given(handoverPackageRepository.findById(handoverPackage.getId())).willReturn(Optional.of(handoverPackage));
+    given(traceCardRepository.findAllByHandoverPackage(handoverPackage)).willReturn(List.of(card));
+    given(cardEvidenceLinkRepository.countByCardIds(List.of(card.getId()))).willReturn(List.of(
+        row(card, EvidenceLinkType.DIRECT, 2L), row(card, EvidenceLinkType.RECORDED, 3L)));
+
+    HandoverPackageResponse response = service.get(requesterOf(reviewer), handoverPackage.getId());
+
+    assertThat(response.cards().get(0).action()).isEqualTo("재시도 5회 유지");
+    assertThat(response.cards().get(0).directEvidenceCount()).isEqualTo(2);
+    assertThat(response.cards().get(0).recordedEvidenceCount()).isEqualTo(3);
+  }
+
+  @Test
+  void list_countsAreLoadedOncePerRequest() {
+    HandoverPackage first = givenPackage(predecessor);
+    HandoverPackage second = givenPackage(predecessor);
+    TraceCard firstCard = givenCard(first, CardStatus.APPROVED);
+    TraceCard secondCard = givenCard(second, CardStatus.DRAFT);
+    given(handoverPackageRepository.findAllByOrderByCreatedAtDesc()).willReturn(List.of(first, second));
+    given(traceCardRepository.findAllByHandoverPackageIn(List.of(first, second)))
+        .willReturn(List.of(firstCard, secondCard));
+    given(cardEvidenceLinkRepository.countByCardIds(anyCollection()))
+        .willReturn(List.of(row(secondCard, EvidenceLinkType.RECORDED, 1L)));
+
+    List<HandoverPackageResponse> responses = service.list(requesterOf(reviewer));
+
+    verify(cardEvidenceLinkRepository, times(1)).countByCardIds(anyCollection());
+    assertThat(responses.get(0).cards().get(0).recordedEvidenceCount()).isZero();
+    assertThat(responses.get(1).cards().get(0).recordedEvidenceCount()).isEqualTo(1);
   }
 
   @Test
@@ -362,6 +458,28 @@ class HandoverPackageServiceTest {
     HandoverPackage created = givenPackage(predecessor);
     created.assignSuccessor(successor);
     return created;
+  }
+
+  private static EvidenceCountRow row(TraceCard card, EvidenceLinkType type, long total) {
+    return new FixedEvidenceCountRow(card.getId(), type, total);
+  }
+
+  private record FixedEvidenceCountRow(UUID cardId, EvidenceLinkType type, Long total) implements EvidenceCountRow {
+
+    @Override
+    public UUID getCardId() {
+      return cardId;
+    }
+
+    @Override
+    public EvidenceLinkType getType() {
+      return type;
+    }
+
+    @Override
+    public Long getTotal() {
+      return total;
+    }
   }
 
   private static TraceCard givenCard(HandoverPackage handoverPackage, CardStatus status) {

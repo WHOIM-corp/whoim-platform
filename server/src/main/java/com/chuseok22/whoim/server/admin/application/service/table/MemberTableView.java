@@ -26,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MemberTableView implements AdminTableView {
 
-  private static final List<String> COLUMNS = List.of("id", "username", "name", "role", "position", "created_at");
+  private static final List<String> COLUMNS = List.of("id", "username", "name", "role", "position",
+      "employee_number", "department", "job_title", "created_at");
 
   private final MemberRepository memberRepository;
 
@@ -59,6 +60,9 @@ public class MemberTableView implements AdminTableView {
             AdminCell.text(member.getName()),
             AdminCell.badge(member.getRole().name()),
             AdminCell.badge(member.getPosition() == null ? null : member.getPosition().name()),
+            AdminCell.text(member.getEmployeeNumber()),
+            AdminCell.text(member.getDepartment()),
+            AdminCell.text(member.getJobTitle()),
             AdminCell.time(member.getCreatedAt()))))
         .toList();
     return new AdminListResponse(AdminTable.MEMBER.pathName(), COLUMNS, rows, members.getNumber(),
@@ -76,6 +80,9 @@ public class MemberTableView implements AdminTableView {
         new AdminFieldResponse("name", AdminCell.text(member.getName())),
         new AdminFieldResponse("role", AdminCell.badge(member.getRole().name())),
         new AdminFieldResponse("position", AdminCell.badge(member.getPosition() == null ? null : member.getPosition().name())),
+        new AdminFieldResponse("employee_number", AdminCell.text(member.getEmployeeNumber())),
+        new AdminFieldResponse("department", AdminCell.text(member.getDepartment())),
+        new AdminFieldResponse("job_title", AdminCell.text(member.getJobTitle())),
         new AdminFieldResponse("created_at", AdminCell.time(member.getCreatedAt())),
         new AdminFieldResponse("updated_at", AdminCell.time(member.getUpdatedAt()))), List.of());
   }

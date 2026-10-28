@@ -42,12 +42,24 @@ public class Member extends BaseEntity {
   @Enumerated(EnumType.STRING)
   private Position position;
 
+  // 사번·부서·직급은 USER만 가진다. ADMIN은 모두 null이고 조합 검증은 시드 검증과 DB CHECK가 맡는다
+  @Column(unique = true)
+  private String employeeNumber;
+
+  private String department;
+
+  private String jobTitle;
+
   @Builder
-  private Member(String username, String password, String name, Role role, Position position) {
+  private Member(String username, String password, String name, Role role, Position position,
+      String employeeNumber, String department, String jobTitle) {
     this.username = username;
     this.password = password;
     this.name = name;
     this.role = role;
     this.position = position;
+    this.employeeNumber = employeeNumber;
+    this.department = department;
+    this.jobTitle = jobTitle;
   }
 }

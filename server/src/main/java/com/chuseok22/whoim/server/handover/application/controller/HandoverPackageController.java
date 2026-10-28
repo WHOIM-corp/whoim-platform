@@ -49,7 +49,7 @@ public class HandoverPackageController implements HandoverPackageControllerDocs 
 
   @LogMonitoring
   @Override
-  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER')")
+  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER','POSITION_SUCCESSOR')")
   @GetMapping
   public ResponseEntity<List<HandoverPackageResponse>> list(@AuthenticationPrincipal AuthenticatedMember requester) {
     return ResponseEntity.ok(handoverPackageService.list(requester));
@@ -57,7 +57,7 @@ public class HandoverPackageController implements HandoverPackageControllerDocs 
 
   @LogMonitoring
   @Override
-  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER')")
+  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER','POSITION_SUCCESSOR')")
   @GetMapping("/{handover-package-id}")
   public ResponseEntity<HandoverPackageResponse> get(
       @AuthenticationPrincipal AuthenticatedMember requester,

@@ -1,7 +1,6 @@
 package com.chuseok22.whoim.server.card.application.dto.response;
 
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
-import com.chuseok22.whoim.server.card.infrastructure.entity.CardEvidenceLink;
 import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
 import com.chuseok22.whoim.server.common.application.time.SeoulTime;
 import java.time.OffsetDateTime;
@@ -27,7 +26,7 @@ public record CardResponse(
     OffsetDateTime createdAt
 ) {
 
-  public static CardResponse from(TraceCard card, List<CardEvidenceLink> links) {
+  public static CardResponse from(TraceCard card, List<CardEvidenceLinkResponse> evidenceLinks) {
     return new CardResponse(
         card.getId(),
         card.getInterview().getId(),
@@ -43,7 +42,7 @@ public record CardResponse(
         card.getReason(),
         card.getException(),
         card.getRisk(),
-        links.stream().map(CardEvidenceLinkResponse::from).toList(),
+        evidenceLinks,
         SeoulTime.toOffsetDateTime(card.getCreatedAt()));
   }
 }

@@ -1,0 +1,138 @@
+.card {
+  display: grid;
+  gap: 0.625rem;
+  padding: 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow:
+    inset 0 0.0625rem 0 #fff,
+    0 0.125rem 0.5rem rgb(30 40 70 / 8%);
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.name {
+  min-width: 0;
+  font-size: var(--text-section);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.unset {
+  color: var(--color-ink-muted);
+  font-weight: 500;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.people {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  color: #fff;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  background: var(--color-ink);
+}
+
+.personLabel {
+  display: block;
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.personName {
+  font-size: var(--text-small);
+}
+
+.empty {
+  .avatar {
+    border: 1px dashed var(--color-gray-500);
+    color: var(--color-gray-500);
+    background: transparent;
+  }
+
+  .personName {
+    color: var(--color-ink-muted);
+    font-weight: 500;
+  }
+}
+
+.arrow {
+  flex: none;
+  color: var(--color-ink-muted);
+}
+
+.flow {
+  margin-top: 1.25rem;
+}
+
+.flowTitle {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-small);
+}
+
+.steps {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-ink-soft);
+  font-size: var(--text-small);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 50%;
+  color: var(--color-ink-muted);
+  font-size: 0.625rem;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 0.5rem;
+  margin-top: 1.125rem;
+}

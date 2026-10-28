@@ -3,6 +3,7 @@ package com.chuseok22.whoim.server.card.application.service;
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
 import com.chuseok22.whoim.server.card.application.dto.data.CardGenerationResult;
 import com.chuseok22.whoim.server.card.application.dto.data.DirectEvidenceCandidate;
+import com.chuseok22.whoim.server.card.application.dto.response.CardEvidenceLinkResponse;
 import com.chuseok22.whoim.server.card.application.dto.response.CardResponse;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
 import com.chuseok22.whoim.server.card.core.constant.EvidenceLinkType;
@@ -64,6 +65,7 @@ public class CardService {
   private final LlmService llmService;
   private final SettingConfigService settingConfigService;
   private final TraceStateCodec traceStateCodec;
+  private final EvidenceElementResolver evidenceElementResolver;
   private final TransactionTemplate readTransaction;
   private final TransactionTemplate writeTransaction;
 
@@ -77,6 +79,7 @@ public class CardService {
       LlmService llmService,
       SettingConfigService settingConfigService,
       TraceStateCodec traceStateCodec,
+      EvidenceElementResolver evidenceElementResolver,
       PlatformTransactionManager transactionManager) {
     this.interviewRepository = interviewRepository;
     this.interviewTurnRepository = interviewTurnRepository;
@@ -87,6 +90,7 @@ public class CardService {
     this.llmService = llmService;
     this.settingConfigService = settingConfigService;
     this.traceStateCodec = traceStateCodec;
+    this.evidenceElementResolver = evidenceElementResolver;
     this.readTransaction = new TransactionTemplate(transactionManager);
     this.readTransaction.setReadOnly(true);
     this.writeTransaction = new TransactionTemplate(transactionManager);
@@ -180,7 +184,9 @@ public class CardService {
     cardEvidenceLinkRepository.saveAll(links);
     log.info("Card 생성: cardId={}, interviewId={}, recordedLinks={}, directLinks={}",
         card.getId(), interviewId, links.size() - directLinks.size(), directLinks.size());
-    return CardResponse.from(card, links);
+    return CardResponse.from(card, links.stream()
+        .map(link -> CardEvidenceLinkResponse.from(link, evidenceElementResolver.resolve(state, link)))
+        .toList());
   }
 
   private record DirectLink(InterviewTurn turn, String excerpt) {

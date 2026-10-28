@@ -1,0 +1,6 @@
+// CardSkeletonGrid와 같은 열 너비여야 로딩이 끝날 때 배치가 흔들리지 않는다.
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1.25rem;
+}

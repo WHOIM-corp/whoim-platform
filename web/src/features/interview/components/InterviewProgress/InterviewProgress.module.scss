@@ -1,0 +1,33 @@
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+  color: var(--color-ink-muted);
+  font-size: var(--text-small);
+
+  b {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+}
+
+.bars {
+  display: flex;
+  gap: 0.25rem;
+
+  span {
+    width: 1.75rem;
+    height: 0.3125rem;
+    border-radius: 999px;
+    background: var(--line-soft);
+  }
+
+  .done {
+    background: var(--color-ink);
+  }
+
+  .now {
+    background: var(--color-gray-500);
+  }
+}

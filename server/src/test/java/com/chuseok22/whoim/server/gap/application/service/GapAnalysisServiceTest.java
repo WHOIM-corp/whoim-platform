@@ -116,6 +116,8 @@ class GapAnalysisServiceTest {
     assertThat(responses).hasSize(1);
     assertThat(responses.get(0).type()).isEqualTo(GapType.CHOICE_GAP);
     assertThat(responses.get(0).progress()).isEqualTo(GapProgress.NOT_STARTED);
+    assertThat(responses.get(0).interviewId()).isNull();
+    assertThat(responses.get(0).cardId()).isNull();
     assertThat(responses.get(0).anchors()).hasSize(1);
     assertThat(responses.get(0).anchors().get(0).fileName()).isEqualTo("a.md");
     assertThat(responses.get(0).anchors().get(0).excerpt()).isEqualTo("line2\nline3");

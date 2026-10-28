@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import { Link, useMatches } from 'react-router'
 import { ROUTE_PATHS } from '@/app/routePaths.ts'
 import type { RouteHandle } from '@/app/routeHandle.ts'
+import { useAuthStore } from '@/features/auth/model/authStore.ts'
 import styles from '@/layouts/components/Breadcrumbs/Breadcrumbs.module.scss'
 
 type Crumb = { label: string; to: string }
@@ -15,10 +16,12 @@ function isRouteHandle(value: unknown): value is RouteHandle {
 
 export function Breadcrumbs() {
   const matches = useMatches()
+  const position = useAuthStore((state) => state.member?.position ?? null)
   const crumbs: Crumb[] = [HOME_CRUMB]
   for (const match of matches) {
     if (isRouteHandle(match.handle) && match.handle.crumb) {
-      crumbs.push({ label: match.handle.crumb, to: match.pathname })
+      const { crumb } = match.handle
+      crumbs.push({ label: typeof crumb === 'string' ? crumb : crumb(position), to: match.pathname })
     }
   }
 

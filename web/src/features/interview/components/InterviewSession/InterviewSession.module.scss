@@ -1,0 +1,15 @@
+.stage {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.chat {
+  flex: 1;
+  min-width: 0;
+  max-width: 46rem;
+}
+
+.notice {
+  margin-top: 1rem;
+}

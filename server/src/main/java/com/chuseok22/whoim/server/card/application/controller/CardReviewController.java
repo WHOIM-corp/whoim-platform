@@ -28,7 +28,7 @@ public class CardReviewController implements CardReviewControllerDocs {
   private final CardReviewService cardReviewService;
 
   @Override
-  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER')")
+  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER','POSITION_SUCCESSOR')")
   @GetMapping("/api/cards")
   public ResponseEntity<List<CardSummaryResponse>> list(
       @AuthenticationPrincipal AuthenticatedMember requester,
@@ -37,7 +37,7 @@ public class CardReviewController implements CardReviewControllerDocs {
   }
 
   @Override
-  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER')")
+  @PreAuthorize("hasAnyAuthority('POSITION_PREDECESSOR','POSITION_REVIEWER','POSITION_SUCCESSOR')")
   @GetMapping("/api/cards/{card-id}")
   public ResponseEntity<CardDetailResponse> get(
       @AuthenticationPrincipal AuthenticatedMember requester,

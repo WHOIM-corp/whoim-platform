@@ -1,7 +1,6 @@
 package com.chuseok22.whoim.server.card.application.dto.response;
 
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
-import com.chuseok22.whoim.server.card.infrastructure.entity.CardEvidenceLink;
 import com.chuseok22.whoim.server.card.infrastructure.entity.CardStateHistory;
 import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
 import com.chuseok22.whoim.server.common.application.time.SeoulTime;
@@ -32,7 +31,7 @@ public record CardDetailResponse(
 ) {
 
   public static CardDetailResponse from(
-      TraceCard card, List<CardEvidenceLink> links, List<CardStateHistory> histories) {
+      TraceCard card, List<CardEvidenceLinkResponse> evidenceLinks, List<CardStateHistory> histories) {
     return new CardDetailResponse(
         card.getId(),
         card.getHandoverPackage().getId(),
@@ -49,7 +48,7 @@ public record CardDetailResponse(
         card.getReason(),
         card.getException(),
         card.getRisk(),
-        links.stream().map(CardEvidenceLinkResponse::from).toList(),
+        evidenceLinks,
         histories.stream().map(CardStateHistoryResponse::from).toList(),
         SeoulTime.toOffsetDateTime(card.getCreatedAt()),
         SeoulTime.toOffsetDateTime(card.getUpdatedAt()));

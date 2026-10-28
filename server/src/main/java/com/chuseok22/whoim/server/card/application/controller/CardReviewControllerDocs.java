@@ -18,11 +18,12 @@ public interface CardReviewControllerDocs {
       summary = "Card 목록 조회",
       description = """
           전임자는 본인 Package의 Card, 승인자는 DRAFT를 제외한 전체 Card를 최근 수정 순으로 반환한다.
-          status를 주면 해당 상태만 거른다(승인자가 DRAFT를 주면 빈 목록).
+          후임자는 본인에게 지정된 PUBLISHED Package의 APPROVED Card만 본다.
+          status를 주면 해당 상태만 거른다(승인자가 DRAFT를 주면 빈 목록, 후임자가 APPROVED 외의 값을 주면 빈 목록).
 
           실패 케이스
           - 400 INVALID_REQUEST: status 값이 올바르지 않음
-          - 403 ACCESS_DENIED: 전임자·승인자가 아님
+          - 403 ACCESS_DENIED: 전임자·승인자·후임자가 아님
           """)
   ResponseEntity<List<CardSummaryResponse>> list(AuthenticatedMember requester, CardStatus status);
 
@@ -30,10 +31,13 @@ public interface CardReviewControllerDocs {
       summary = "Card 상세 조회",
       description = """
           Card 필드, 근거, 상태 이력을 반환한다.
+          후임자는 본인에게 지정된 PUBLISHED Package의 APPROVED Card만 조회할 수 있고, 상태 이력(행위자 정보)은 빈 목록으로 받는다.
+          후임자에게도 interviewId, 근거의 turnNumber·documentId·offset은 그대로 나간다. 이를 따라가는 인터뷰·문서 엔드포인트는
+          후임자에게 모두 403이라 노출을 수용한다.
 
           실패 케이스
           - 403 ACCESS_DENIED: 남의 Package의 Card(전임자)
-          - 404 RESOURCE_NOT_FOUND: Card가 없음, 승인자가 DRAFT Card를 조회
+          - 404 RESOURCE_NOT_FOUND: Card가 없음, 승인자가 DRAFT Card를 조회, 후임자가 볼 수 없는 Card(남의 Card, 미공개·미승인 Card)를 조회
           """)
   ResponseEntity<CardDetailResponse> get(AuthenticatedMember requester, UUID cardId);
 

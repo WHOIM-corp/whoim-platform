@@ -1,10 +1,13 @@
 package com.chuseok22.whoim.server.card.application.service;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
+import com.chuseok22.whoim.server.card.application.dto.data.EvidenceCounts;
 import com.chuseok22.whoim.server.card.application.dto.request.CardRejectRequest;
 import com.chuseok22.whoim.server.card.application.dto.response.CardDetailResponse;
+import com.chuseok22.whoim.server.card.application.dto.response.CardEvidenceLinkResponse;
 import com.chuseok22.whoim.server.card.application.dto.response.CardSummaryResponse;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
+import com.chuseok22.whoim.server.card.infrastructure.entity.CardEvidenceLink;
 import com.chuseok22.whoim.server.card.infrastructure.entity.CardStateHistory;
 import com.chuseok22.whoim.server.card.infrastructure.entity.TraceCard;
 import com.chuseok22.whoim.server.card.infrastructure.repository.CardEvidenceLinkRepository;
@@ -13,10 +16,13 @@ import com.chuseok22.whoim.server.card.infrastructure.repository.TraceCardReposi
 import com.chuseok22.whoim.server.common.application.exception.CustomException;
 import com.chuseok22.whoim.server.common.application.exception.ErrorCode;
 import com.chuseok22.whoim.server.handover.core.constant.HandoverStatus;
+import com.chuseok22.whoim.server.interview.application.service.TraceStateCodec;
+import com.chuseok22.whoim.server.interview.core.constant.TraceState;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.infrastructure.entity.Member;
 import com.chuseok22.whoim.server.member.infrastructure.repository.MemberRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +38,10 @@ public class CardReviewService {
   private final CardEvidenceLinkRepository cardEvidenceLinkRepository;
   private final CardStateHistoryRepository cardStateHistoryRepository;
   private final MemberRepository memberRepository;
+  private final TraceStateCodec traceStateCodec;
+  private final EvidenceElementResolver evidenceElementResolver;
+  private final CardEvidenceCounter cardEvidenceCounter;
+  private final SuccessorCardPolicy successorCardPolicy;
 
   // status가 null이면 전체. 승인자에게는 DRAFT를 보이지 않는다
   @Transactional(readOnly = true)
@@ -42,12 +52,26 @@ public class CardReviewService {
     } else if (Position.PREDECESSOR == requester.position()) {
       cards = traceCardRepository.findAllByHandoverPackagePredecessorOrderByUpdatedAtDesc(
           findMember(requester));
+    } else if (Position.SUCCESSOR == requester.position()) {
+      // 후임자는 APPROVED만 본다. 다른 상태를 요청하면 빈 목록이다
+      if (status != null && status != CardStatus.APPROVED) {
+        return List.of();
+      }
+      cards = traceCardRepository
+          .findAllForSuccessor(CardStatus.APPROVED, HandoverStatus.PUBLISHED, requester.memberId())
+          .stream()
+          .filter(card -> successorCardPolicy.isVisible(card, requester.memberId()))
+          .toList();
     } else {
       throw new CustomException(ErrorCode.ACCESS_DENIED);
     }
-    return cards.stream()
+    List<TraceCard> filtered = cards.stream()
         .filter(card -> status == null || card.getStatus() == status)
-        .map(CardSummaryResponse::from)
+        .toList();
+    Map<UUID, EvidenceCounts> countsByCardId = cardEvidenceCounter.countFor(filtered);
+    return filtered.stream()
+        .map(card -> CardSummaryResponse.from(
+            card, countsByCardId.getOrDefault(card.getId(), EvidenceCounts.ZERO)))
         .toList();
   }
 
@@ -60,6 +84,12 @@ public class CardReviewService {
       }
     } else if (Position.PREDECESSOR == requester.position()) {
       validateOwner(requester, card);
+    } else if (Position.SUCCESSOR == requester.position()) {
+      // 존재를 알리지 않으려고 403이 아닌 404를 쓴다. 행위자 정보가 든 상태 이력은 비운다
+      if (!successorCardPolicy.isVisible(card, requester.memberId())) {
+        throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND);
+      }
+      return toDetail(card, List.of());
     } else {
       throw new CustomException(ErrorCode.ACCESS_DENIED);
     }
@@ -108,10 +138,16 @@ public class CardReviewService {
   }
 
   private CardDetailResponse toDetail(TraceCard card) {
-    return CardDetailResponse.from(
-        card,
-        cardEvidenceLinkRepository.findAllByCardOrderByCreatedAtAsc(card),
-        cardStateHistoryRepository.findAllByCardOrderByCreatedAtAsc(card));
+    return toDetail(card, cardStateHistoryRepository.findAllByCardOrderByCreatedAtAsc(card));
+  }
+
+  private CardDetailResponse toDetail(TraceCard card, List<CardStateHistory> histories) {
+    TraceState state = traceStateCodec.read(card.getInterview().getTraceState());
+    List<CardEvidenceLinkResponse> evidenceLinks = cardEvidenceLinkRepository.findAllByCardOrderByCreatedAtAsc(card)
+        .stream()
+        .map(link -> CardEvidenceLinkResponse.from(link, evidenceElementResolver.resolve(state, link)))
+        .toList();
+    return CardDetailResponse.from(card, evidenceLinks, histories);
   }
 
   private TraceCard findCard(UUID cardId) {

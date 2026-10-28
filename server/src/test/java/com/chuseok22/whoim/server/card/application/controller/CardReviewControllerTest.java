@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.chuseok22.whoim.server.auth.application.dto.data.AuthenticatedMember;
@@ -13,9 +14,14 @@ import com.chuseok22.whoim.server.auth.infrastructure.config.JwtAuthenticationEn
 import com.chuseok22.whoim.server.auth.infrastructure.config.JwtProvider;
 import com.chuseok22.whoim.server.auth.infrastructure.config.SecurityConfig;
 import com.chuseok22.whoim.server.card.application.dto.response.CardDetailResponse;
+import com.chuseok22.whoim.server.card.application.dto.response.CardEvidenceLinkResponse;
+import com.chuseok22.whoim.server.card.application.dto.response.CardStateHistoryResponse;
+import com.chuseok22.whoim.server.card.application.dto.response.CardSummaryResponse;
 import com.chuseok22.whoim.server.card.application.service.CardReviewService;
 import com.chuseok22.whoim.server.card.core.constant.CardStatus;
+import com.chuseok22.whoim.server.card.core.constant.EvidenceLinkType;
 import com.chuseok22.whoim.server.common.application.exception.GlobalExceptionHandler;
+import com.chuseok22.whoim.server.interview.core.constant.TraceElement;
 import com.chuseok22.whoim.server.member.core.constant.Position;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import java.time.Clock;
@@ -89,15 +95,23 @@ class CardReviewControllerTest {
   }
 
   @Test
-  void listAndGet_asSuccessorOrAdmin_returns403() throws Exception {
+  void listAndGet_asAdmin_returns403() throws Exception {
     String cardPath = CARDS + "/" + UUID.randomUUID();
 
-    mockMvc.perform(authorized(get(CARDS), Role.USER, Position.SUCCESSOR)).andExpect(status().isForbidden());
     mockMvc.perform(authorized(get(CARDS), Role.ADMIN, null)).andExpect(status().isForbidden());
-    mockMvc.perform(authorized(get(cardPath), Role.USER, Position.SUCCESSOR)).andExpect(status().isForbidden());
     mockMvc.perform(authorized(get(cardPath), Role.ADMIN, null)).andExpect(status().isForbidden());
 
     verifyNoInteractions(cardReviewService);
+  }
+
+  @Test
+  void listAndGet_asSuccessor_returns200() throws Exception {
+    given(cardReviewService.list(any(), any())).willReturn(List.of());
+    given(cardReviewService.get(any(), any())).willReturn(emptyDetail());
+
+    mockMvc.perform(authorized(get(CARDS), Role.USER, Position.SUCCESSOR)).andExpect(status().isOk());
+    mockMvc.perform(authorized(get(CARDS + "/" + UUID.randomUUID()), Role.USER, Position.SUCCESSOR))
+        .andExpect(status().isOk());
   }
 
   @Test
@@ -106,6 +120,36 @@ class CardReviewControllerTest {
 
     mockMvc.perform(authorized(get(CARDS + "/" + UUID.randomUUID()), Role.USER, Position.PREDECESSOR))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void list_exposesActionAndEvidenceCounts() throws Exception {
+    given(cardReviewService.list(any(), any())).willReturn(List.of(new CardSummaryResponse(
+        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "제목", CardStatus.APPROVED,
+        "재시도 5회 유지", 2, 1, null)));
+
+    mockMvc.perform(authorized(get(CARDS), Role.USER, Position.REVIEWER))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].action").value("재시도 5회 유지"))
+        .andExpect(jsonPath("$[0].directEvidenceCount").value(2))
+        .andExpect(jsonPath("$[0].recordedEvidenceCount").value(1));
+  }
+
+  @Test
+  void get_exposesEvidenceElementsAndActorName() throws Exception {
+    given(cardReviewService.get(any(), any())).willReturn(new CardDetailResponse(
+        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), CardStatus.APPROVED, "제목",
+        null, null, null, null, null, null, null, null, null, null,
+        List.of(new CardEvidenceLinkResponse(
+            EvidenceLinkType.DIRECT, 2, null, null, null, null, "발언", List.of(TraceElement.JUDGMENT))),
+        List.of(new CardStateHistoryResponse(
+            CardStatus.DRAFT, CardStatus.PREDECESSOR_CONFIRMED, "login-id", "홍길동", null, null)),
+        null, null));
+
+    mockMvc.perform(authorized(get(CARDS + "/" + UUID.randomUUID()), Role.USER, Position.PREDECESSOR))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.evidenceLinks[0].elements[0]").value("JUDGMENT"))
+        .andExpect(jsonPath("$.stateHistory[0].actorName").value("홍길동"));
   }
 
   @Test

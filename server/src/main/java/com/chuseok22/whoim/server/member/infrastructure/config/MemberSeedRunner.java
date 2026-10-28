@@ -44,6 +44,9 @@ public class MemberSeedRunner implements ApplicationRunner {
           .name(seed.name())
           .role(seed.role())
           .position(seed.position())
+          .employeeNumber(seed.employeeNumber())
+          .department(seed.department())
+          .jobTitle(seed.jobTitle())
           .build());
       createdCount++;
     }

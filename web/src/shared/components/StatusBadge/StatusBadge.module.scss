@@ -1,0 +1,40 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.375rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.neutral,
+.partial {
+  border-color: var(--color-gray-300);
+  color: var(--color-ink-soft);
+  background: #fff;
+}
+
+.pending {
+  color: var(--status-warn);
+  background: var(--status-warn-tint);
+}
+
+.approved {
+  color: var(--status-ok);
+  background: var(--status-ok-tint);
+}
+
+.rejected {
+  color: var(--status-danger);
+  background: var(--status-danger-tint);
+}
+
+.published {
+  color: #fff;
+  background: var(--color-ink);
+}

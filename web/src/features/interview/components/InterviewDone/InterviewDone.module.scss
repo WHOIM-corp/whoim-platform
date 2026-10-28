@@ -1,0 +1,35 @@
+.done {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 1.25rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgb(26 127 55 / 22%);
+  border-radius: 1rem;
+  background: var(--status-ok-tint);
+}
+
+.icon {
+  flex: none;
+  color: var(--status-ok);
+}
+
+.body {
+  display: grid;
+  gap: 0.125rem;
+
+  p {
+    margin: 0;
+    color: var(--color-ink-soft);
+    font-size: var(--text-small);
+  }
+}
+
+.action {
+  flex: none;
+  margin-left: auto;
+}
+
+.notice {
+  margin-top: 0.75rem;
+}

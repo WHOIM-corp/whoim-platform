@@ -131,7 +131,7 @@ public class GapAnalysisService {
               .excerpt(anchor.excerpt())
               .build())
           .toList());
-      responses.add(GapResponse.from(gap, anchors, GapProgress.NOT_STARTED));
+      responses.add(GapResponse.from(gap, anchors, GapProgress.NOT_STARTED, null, null));
     }
     log.info("Gap 분석 저장: handoverPackageId={}, gapCount={}", handoverPackageId, responses.size());
     return responses;
