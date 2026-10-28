@@ -35,15 +35,15 @@
 # Gradle/Maven -SNAPSHOT is kept when the version is bumped (1.2.0-SNAPSHOT -> 1.2.1-SNAPSHOT).
 # ===
 
-version: "0.12.0"
-version_code: 16 # app build number
+version: "0.13.0"
+version_code: 17 # app build number
 project_types: ["spring", "react"] # first entry is primary
 language: "ko" # message language: en | ko
 project_paths: # 타입별 프로젝트 폴더 (레포 루트 기준 상대경로)
   spring: "server" # server/build.gradle
   react: "web" # web/package.json
 metadata:
-  last_updated: "2026-10-25"
+  last_updated: "2026-10-28"
   last_updated_by: "Chuseok22"
   default_branch: "main"
   integration_date: "2026-10-10"
