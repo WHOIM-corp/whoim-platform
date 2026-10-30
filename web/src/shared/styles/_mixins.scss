@@ -97,3 +97,26 @@
     inset 0 0.0625rem 0 #fff,
     0 0.0625rem $lift-blur rgb(0 0 0 / #{$lift-alpha});
 }
+
+// 반투명 섹션 카드와 그 머리글
+@mixin panel-section {
+  padding: 1rem 1.125rem 1.125rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 55%);
+}
+
+@mixin panel-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+@mixin panel-section-heading {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}

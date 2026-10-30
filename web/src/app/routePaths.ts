@@ -4,6 +4,7 @@ export const ROUTE_PATHS = {
   packages: '/packages',
   packageNew: '/packages/new',
   packageDetail: '/packages/:packageId',
+  packageEvidence: '/packages/:packageId/evidence',
   packageGaps: '/packages/:packageId/gaps',
   packageGapInterview: '/packages/:packageId/gaps/:gapId/interview',
   queue: '/queue',

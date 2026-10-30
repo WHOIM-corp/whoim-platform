@@ -1,0 +1,130 @@
+@use 'mixins' as *;
+
+.section {
+  @include panel-section;
+}
+
+.header {
+  @include panel-section-header;
+}
+
+.heading {
+  @include panel-section-heading;
+}
+
+.notice {
+  margin-bottom: 0.75rem;
+}
+
+.dropZone {
+  display: grid;
+  justify-items: center;
+  gap: 0.375rem;
+  padding: 1.75rem 1rem;
+  border: 1.5px dashed var(--color-gray-300);
+  border-radius: var(--radius-card);
+  text-align: center;
+  background: rgb(255 255 255 / 50%);
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+
+  &:hover,
+  &:focus-within,
+  &.over {
+    border-color: var(--color-ink);
+    background: #fff;
+    box-shadow: 0 0 0 0.1875rem rgb(23 23 23 / 8%);
+  }
+}
+
+.iconChip {
+  @include icon-chip;
+
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--color-ink-soft);
+}
+
+.hint {
+  color: var(--color-ink-muted);
+  font-size: var(--text-small);
+}
+
+.fileInput {
+  display: none;
+}
+
+.pick {
+  height: 1.875rem;
+  margin-top: 0.5rem;
+  padding: 0 0.875rem;
+}
+
+.chosen {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-button);
+  font-size: var(--text-small);
+  background: #fff;
+}
+
+.chosenName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove {
+  height: 1.875rem;
+  margin-left: auto;
+  padding: 0 0.875rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-top: 0.875rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.label {
+  color: var(--color-ink-soft);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.select {
+  @include field-inset;
+
+  height: 2.25rem;
+  min-width: 13rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-small);
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.upload {
+  margin-left: auto;
+}
