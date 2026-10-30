@@ -36,7 +36,9 @@ async function readJsonBody(response: Response): Promise<unknown> {
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { method = 'GET', body, authenticated = true } = options
   const headers: Record<string, string> = {}
-  if (body !== undefined) {
+  // FormData는 브라우저가 boundary를 포함한 Content-Type을 직접 설정해야 한다.
+  const isFormData = body instanceof FormData
+  if (body !== undefined && !isFormData) {
     headers['Content-Type'] = 'application/json'
   }
   const accessToken = authenticated ? config.getAccessToken() : null
@@ -49,7 +51,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     response = await fetch(apiBaseUrl + path, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: isFormData ? body : body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(
