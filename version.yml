@@ -35,8 +35,8 @@
 # Gradle/Maven -SNAPSHOT is kept when the version is bumped (1.2.0-SNAPSHOT -> 1.2.1-SNAPSHOT).
 # ===
 
-version: "0.14.0"
-version_code: 18 # app build number
+version: "0.15.0"
+version_code: 19 # app build number
 project_types: ["spring", "react"] # first entry is primary
 language: "ko" # message language: en | ko
 project_paths: # 타입별 프로젝트 폴더 (레포 루트 기준 상대경로)
