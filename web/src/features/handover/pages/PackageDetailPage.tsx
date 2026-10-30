@@ -1,6 +1,7 @@
-import { Globe } from 'lucide-react'
+import { FileText, Globe } from 'lucide-react'
 import { useState } from 'react'
-import { useParams, useSearchParams } from 'react-router'
+import { generatePath, useNavigate, useParams, useSearchParams } from 'react-router'
+import { ROUTE_PATHS } from '@/app/routePaths.ts'
 import { useAuthStore } from '@/features/auth/model/authStore.ts'
 import { PackageTabs } from '@/features/gap/components/PackageTabs/PackageTabs.tsx'
 import { CardGrid } from '@/features/card/components/CardGrid/CardGrid.tsx'
@@ -24,6 +25,7 @@ const STATUS_QUERY_KEY = 'status'
 
 export function PackageDetailPage() {
   const { packageId = '' } = useParams()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const position = useAuthStore((state) => state.member?.position ?? null)
   const packageQuery = useHandoverPackage(packageId)
@@ -81,16 +83,24 @@ export function PackageDetailPage() {
           </>
         }
         actions={
-          canManagePublish && (
-            <Button
-              variant="primary"
-              disabled={!canPublish(handoverPackage)}
-              title={blockReason ?? undefined}
-              onClick={() => setPublishing(true)}
-            >
-              <Globe size={16} aria-hidden="true" />
-              Package 공개
-            </Button>
+          isReviewer && (
+            <>
+              <Button onClick={() => navigate(generatePath(ROUTE_PATHS.packageEvidence, { packageId }))}>
+                <FileText size={16} aria-hidden="true" />
+                근거 자료
+              </Button>
+              {canManagePublish && (
+                <Button
+                  variant="primary"
+                  disabled={!canPublish(handoverPackage)}
+                  title={blockReason ?? undefined}
+                  onClick={() => setPublishing(true)}
+                >
+                  <Globe size={16} aria-hidden="true" />
+                  Package 공개
+                </Button>
+              )}
+            </>
           )
         }
       />

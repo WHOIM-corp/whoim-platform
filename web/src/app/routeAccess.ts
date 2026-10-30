@@ -7,6 +7,7 @@ export const ROUTE_ACCESS = {
   packages: ALL_POSITIONS,
   packageDetail: ALL_POSITIONS,
   packageNew: ['REVIEWER'],
+  packageEvidence: ['PREDECESSOR', 'REVIEWER'],
   packageGaps: ['PREDECESSOR'],
   packageGapInterview: ['PREDECESSOR'],
   cardDetail: ALL_POSITIONS,

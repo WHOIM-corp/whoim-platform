@@ -9,6 +9,7 @@ import type { Position } from '@/features/auth/model/authTypes.ts'
 import { CARD_QUEUE_BY_POSITION } from '@/features/card/model/cardQueue.ts'
 import { CardDetailPage } from '@/features/card/pages/CardDetailPage.tsx'
 import { QueuePage } from '@/features/card/pages/QueuePage.tsx'
+import { PackageEvidencePage } from '@/features/evidence/pages/PackageEvidencePage.tsx'
 import { PackageGapsPage } from '@/features/gap/pages/PackageGapsPage.tsx'
 import { NewPackagePage } from '@/features/handover/pages/NewPackagePage.tsx'
 import { PackageDetailPage } from '@/features/handover/pages/PackageDetailPage.tsx'
@@ -75,6 +76,16 @@ export const router = createBrowserRouter([
                         path: ':packageId/gaps/:gapId/interview',
                         element: <InterviewPage />,
                         handle: handleOf('인터뷰'),
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequirePosition allow={ROUTE_ACCESS.packageEvidence} />,
+                    children: [
+                      {
+                        path: ':packageId/evidence',
+                        element: <PackageEvidencePage />,
+                        handle: handleOf('근거 자료'),
                       },
                     ],
                   },
