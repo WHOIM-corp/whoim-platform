@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-10-28T05:33:02Z",
-    "currentVersion": "0.13.0",
+    "lastUpdated": "2026-10-30T10:20:59Z",
+    "currentVersion": "0.14.0",
     "projectTypes": [
       "spring",
       "react"
     ],
-    "totalReleases": 16
+    "totalReleases": 17
   },
   "releases": [
+    {
+      "version": "0.14.0",
+      "project_types": [
+        "spring",
+        "react"
+      ],
+      "date": "2026-10-30",
+      "pr_number": null,
+      "raw_summary": "### ✨ 기능\n- AI_프롬프트_관리자_설정화와_출력_계약_정리 — DLP 탐지 기본 프롬프트를 측정으로 검증한 v3 판정 절차로 교체\n- AI_프롬프트_관리자_설정화와_출력_계약_정리 — 프롬프트 7종 지침과 출력 계약을 정리하고 상담 지침을 관리자 설정으로 분리\n- AI_프롬프트_관리자_설정화와_출력_계약_정리 — 프롬프트 공통 고정 규칙과 입력 구분자 상수 추가",
+      "parsed_changes": {
+        "feat": {
+          "title": "✨ 기능",
+          "items": [
+            "AI_프롬프트_관리자_설정화와_출력_계약_정리 — DLP 탐지 기본 프롬프트를 측정으로 검증한 v3 판정 절차로 교체",
+            "AI_프롬프트_관리자_설정화와_출력_계약_정리 — 프롬프트 7종 지침과 출력 계약을 정리하고 상담 지침을 관리자 설정으로 분리",
+            "AI_프롬프트_관리자_설정화와_출력_계약_정리 — 프롬프트 공통 고정 규칙과 입력 구분자 상수 추가"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.13.0",
       "project_types": [

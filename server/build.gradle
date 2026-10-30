@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.chuseok22.whoim'
-version = '0.13.0-SNAPSHOT'
+version = '0.14.0-SNAPSHOT'
 description = 'server'
 
 java {
