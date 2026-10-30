@@ -15,6 +15,9 @@ import com.chuseok22.whoim.server.consultation.application.dto.response.Consulta
 import com.chuseok22.whoim.server.consultation.application.dto.response.ConsultationQuestionsResponse;
 import com.chuseok22.whoim.server.consultation.application.dto.response.ConsultationSuggestionsResponse;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +48,7 @@ public class ConsultationService {
   private final CardEvidenceLinkRepository cardEvidenceLinkRepository;
   private final CardStateHistoryRepository cardStateHistoryRepository;
   private final LlmService llmService;
+  private final SettingConfigService settingConfigService;
   private final TransactionTemplate readTransaction;
 
   public ConsultationService(
@@ -52,11 +56,13 @@ public class ConsultationService {
       CardEvidenceLinkRepository cardEvidenceLinkRepository,
       CardStateHistoryRepository cardStateHistoryRepository,
       LlmService llmService,
+      SettingConfigService settingConfigService,
       PlatformTransactionManager transactionManager) {
     this.candidateFinder = candidateFinder;
     this.cardEvidenceLinkRepository = cardEvidenceLinkRepository;
     this.cardStateHistoryRepository = cardStateHistoryRepository;
     this.llmService = llmService;
+    this.settingConfigService = settingConfigService;
     this.readTransaction = new TransactionTemplate(transactionManager);
     this.readTransaction.setReadOnly(true);
   }
@@ -69,8 +75,11 @@ public class ConsultationService {
       return new ConsultationQuestionsResponse(List.of(), NO_PUBLISHED_CARD);
     }
 
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_CONSULTATION_QUESTIONS, DefaultPromptInstructions.CONSULTATION_QUESTIONS);
     ConsultationQuestionsResult result = llmService.generate(
-        ConsultationPrompt.questions(request.situation(), candidates), ConsultationQuestionsResult.class);
+        ConsultationPrompt.questions(instruction, request.situation(), candidates),
+        ConsultationQuestionsResult.class);
 
     List<String> questions = result.questions().stream()
         .filter(Objects::nonNull)
@@ -91,8 +100,10 @@ public class ConsultationService {
     }
 
     List<ConsultationAnswerRequest> answers = request.answers() == null ? List.of() : request.answers();
+    String instruction = settingConfigService.getString(
+        SettingKey.PROMPT_CONSULTATION_SUGGESTIONS, DefaultPromptInstructions.CONSULTATION_SUGGESTIONS);
     ConsultationSuggestionResult result = llmService.generate(
-        ConsultationPrompt.suggestions(request.situation(), answers, candidates),
+        ConsultationPrompt.suggestions(instruction, request.situation(), answers, candidates),
         ConsultationSuggestionResult.class);
 
     List<ConsultationCardResponse> cards = select(result.selections(), candidates);

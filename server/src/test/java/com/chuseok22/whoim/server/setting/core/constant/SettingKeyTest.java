@@ -16,6 +16,22 @@ class SettingKeyTest {
   }
 
   @Test
+  void fromKey_returnsConsultationPromptKeys() {
+    assertThat(SettingKey.fromKey("prompt.consultation-questions")).contains(SettingKey.PROMPT_CONSULTATION_QUESTIONS);
+    assertThat(SettingKey.fromKey("prompt.consultation-suggestions"))
+        .contains(SettingKey.PROMPT_CONSULTATION_SUGGESTIONS);
+  }
+
+  @Test
+  void allPromptDefaults_passValidation() {
+    for (SettingKey key : SettingKey.values()) {
+      if (key.key().startsWith("prompt.")) {
+        assertThatCode(() -> key.validate(key.defaultValue())).doesNotThrowAnyException();
+      }
+    }
+  }
+
+  @Test
   void fromKey_returnsEmpty_whenUnknown() {
     assertThat(SettingKey.fromKey("unknown.key")).isEmpty();
   }

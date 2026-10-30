@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -24,6 +25,9 @@ import com.chuseok22.whoim.server.evidence.infrastructure.entity.EvidenceDocumen
 import com.chuseok22.whoim.server.llm.application.dto.data.LlmRequest;
 import com.chuseok22.whoim.server.llm.application.service.LlmService;
 import com.chuseok22.whoim.server.member.core.constant.Position;
+import com.chuseok22.whoim.server.setting.application.service.SettingConfigService;
+import com.chuseok22.whoim.server.setting.core.constant.DefaultPromptInstructions;
+import com.chuseok22.whoim.server.setting.core.constant.SettingKey;
 import com.chuseok22.whoim.server.member.core.constant.Role;
 import com.chuseok22.whoim.server.consultation.application.dto.data.ConsultationQuestionsResult;
 import com.chuseok22.whoim.server.consultation.application.dto.data.ConsultationSelection;
@@ -63,6 +67,8 @@ class ConsultationServiceTest {
   private CardStateHistoryRepository cardStateHistoryRepository;
   @Mock
   private LlmService llmService;
+  @Mock
+  private SettingConfigService settingConfigService;
 
   private final CountingTransactionManager transactionManager = new CountingTransactionManager();
 
@@ -72,7 +78,14 @@ class ConsultationServiceTest {
   @BeforeEach
   void setUp() {
     service = new ConsultationService(
-        candidateFinder, cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, transactionManager);
+        candidateFinder, cardEvidenceLinkRepository, cardStateHistoryRepository, llmService, settingConfigService,
+        transactionManager);
+    lenient().when(settingConfigService.getString(
+        SettingKey.PROMPT_CONSULTATION_QUESTIONS, DefaultPromptInstructions.CONSULTATION_QUESTIONS))
+        .thenReturn("질문 지침");
+    lenient().when(settingConfigService.getString(
+        SettingKey.PROMPT_CONSULTATION_SUGGESTIONS, DefaultPromptInstructions.CONSULTATION_SUGGESTIONS))
+        .thenReturn("제시 지침");
     requester = new AuthenticatedMember(UUID.randomUUID(), "successor", Role.USER, Position.SUCCESSOR);
   }
 
@@ -118,6 +131,31 @@ class ConsultationServiceTest {
     assertThat(captor.getValue().prompt()).contains("[C1] 카드1").contains("[C2] 카드2");
     assertThat(openTransactionsDuringLlmCall.get()).isZero();
     assertThat(transactionManager.readOnlyFlags()).containsExactly(true);
+  }
+
+  @Test
+  void questions_passesConfiguredInstructionToPrompt() {
+    givenCandidates(givenCard("카드1"));
+    given(llmService.generate(any(LlmRequest.class), eq(ConsultationQuestionsResult.class)))
+        .willReturn(new ConsultationQuestionsResult(List.of()));
+
+    service.questions(requester, new ConsultationQuestionsRequest("상황"));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(ConsultationQuestionsResult.class));
+    assertThat(captor.getValue().system()).startsWith("질문 지침");
+  }
+
+  @Test
+  void suggest_passesConfiguredInstructionToPrompt() {
+    givenCandidates(givenCard("카드1"));
+    givenSelections();
+
+    service.suggest(requester, suggestionsRequest(List.of()));
+
+    ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llmService).generate(captor.capture(), eq(ConsultationSuggestionResult.class));
+    assertThat(captor.getValue().system()).startsWith("제시 지침");
   }
 
   @Test
