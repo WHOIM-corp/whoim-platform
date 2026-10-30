@@ -42,8 +42,8 @@
 
 - Goal: Hero Flow(Evidence-first → TRACE → Verified TRACE → Decision Reuse) 하나만 완성한다. 개발은 단독 약 3주다.
 - P0: 데이터 모델, JWT 인증, 문서 업로드, Gap 탐지("분석 시작", Package당 1회), 인터뷰(3~5턴, 텍스트만) → Card 생성, 전임자 Confirm, 승인자 Approve·Reject·Package 생성·Publish, 후임자 상담.
-- P1: Reject와 Card 이력 타임라인, DLP(Rule/Regex + AI 2차 탐지), 문서 업로드 웹 화면.
-- P2: Gap 유형 일반화, Fail-Closed 시연 코드, 모의 Connector 화면(사용자 요청, 이슈 미등록), UI polish.
+- P1: Reject와 Card 이력 타임라인, DLP(Rule/Regex + AI 2차 탐지), 근거 자료 화면(파일 업로드와 연동 소스 읽기 전용 표시).
+- P2: Gap 유형 일반화, Fail-Closed 시연 코드, UI polish.
 - Data: 합성 데이터만 쓴다. 실제 회사·인물·내부 정보를 코드, 테스트, 스크린샷에 넣지 않는다. 합성 데이터와 시연 대본은 Claude가 초안을 쓰고 사용자가 검수한다.
 - Accounts: 회원가입 없음. 시연 계정 4개(전임자, 후임자, 승인자, 관리자)를 `application-*.yml`의 `seed.members`로 서버 기동 시 만든다. 나머지 데이터는 앱 기능으로 입력한다.
 
@@ -54,7 +54,7 @@
 | 전임자의 Card 수정·보완 | 4-4: 잘못된 해석을 보완 | 제외. Confirm만 한다 | MVP 단순화 |
 | 승인자의 수정 요청 루프 | 4-4: 회사 검수 | 제외. Approve·Reject만 한다 | MVP 단순화 |
 | Reject된 판단의 재인터뷰 | 언급 없음 | 제외. Gap당 인터뷰 하나 | MVP 단순화 |
-| 실제 Git·Jira·Wiki 연동 | 4-6: 근거 출처로 연동 | 제외. 문서 업로드만(모의 화면은 P2) | 일정 |
+| 실제 Git·Jira·Wiki 연동 | 4-6: 근거 출처로 연동 | 제외. 문서 업로드만. 웹 근거 자료 화면에 "연동 소스" 읽기 전용 표시(모의, 서버 Connector 없음)는 P1 | 일정 |
 | 판단 발생 시점부터 지속 축적 | 3-5 | 제외(Scheduler 없음) | 일정 |
 | 온프레미스·로컬 AI DLP | 4-6: 전면 적용 | Rule/Regex + AI 2차 탐지(SUH AI, 실패 시 Gemini에는 Rule 마스킹 텍스트만). 시연 연출 제외 | 일정 |
 | 관리자의 최종 공개 | 4-4: 관리자 | 승인자(`REVIEWER`)가 Approve와 Publish를 모두 한다 | 역할 단순화 |
